@@ -1,6 +1,11 @@
 // Cliente TypeScript para a API Go do Indica AÍ!
 // Futuramente será gerado automaticamente da OpenAPI spec via openapi-typescript
 
+export * from "./auth";
+export * from "./leads";
+export * from "./partners";
+export * from "./programs";
+
 export interface ApiClientOptions {
   baseUrl: string;
   credentials?: RequestCredentials;

@@ -2,7 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@indica/api-client": ["../api-client/src"],
+      "@indica/api-client/*": ["../api-client/src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
