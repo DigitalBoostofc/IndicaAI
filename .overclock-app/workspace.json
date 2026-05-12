@@ -1,0 +1,7 @@
+{
+  "autoSpawnSquad": null,
+  "favoritePane": {
+    "agent": "claude",
+    "model": "claude-sonnet-4-6"
+  }
+}

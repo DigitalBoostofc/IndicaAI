@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./app/*"],
+      "@indica/ui": ["../../packages/ui/src"],
+      "@indica/ui/*": ["../../packages/ui/src/*"],
+      "@indica/api-client": ["../../packages/api-client/src"],
+      "@indica/api-client/*": ["../../packages/api-client/src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

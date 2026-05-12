@@ -1,0 +1,211 @@
+{
+  "main": {
+    "id": "98e641878b8f6512",
+    "type": "split",
+    "children": [
+      {
+        "id": "aa513c2bbb7a1916",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "165d96db6e1f4686",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "docs/lgpd-data-policy.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "lgpd-data-policy"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c1d0ef59670cc641",
+    "type": "split",
+    "children": [
+      {
+        "id": "4175d7cc7812926a",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "2a9fdf16cc125c68",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de arquivos"
+            }
+          },
+          {
+            "id": "401430c0eda562e3",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Procurar"
+            }
+          },
+          {
+            "id": "70caeed3bce0726e",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "421f087d6d45bbde",
+    "type": "split",
+    "children": [
+      {
+        "id": "1fba8a70dcba5abe",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6acaf79ce6c17434",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "CLAUDE.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Links inversos para CLAUDE"
+            }
+          },
+          {
+            "id": "125e2fd19fb34ec9",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "CLAUDE.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Links de saída para CLAUDE"
+            }
+          },
+          {
+            "id": "49be3be5e0aa8d33",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "25b1a52cbeafd288",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas as propriedades"
+            }
+          },
+          {
+            "id": "8e129f11a2c26fc1",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "CLAUDE.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Sumário de CLAUDE"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir a troca rápida": false,
+      "graph:Abrir visualização em gráfico": false,
+      "canvas:Criar novo canvas": false,
+      "daily-notes:Abrir a nota de hoje": false,
+      "templates:Inserir modelo": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Criar nova base": false
+    }
+  },
+  "active": "2a9fdf16cc125c68",
+  "lastOpenFiles": [
+    "web/apps/dashboard/app/(app)/dashboard/page.tsx.tmp.13100.02b3fe4ae796",
+    "web/apps/dashboard/app/(app)/dashboard/page.tsx.tmp.13100.e891beb7c6dc",
+    "web/apps/dashboard/app/(app)/dashboard/clicks-chart.tsx",
+    "web/apps/dashboard/next.config.ts.tmp.13100.0822ac9d1062",
+    "web/packages/ui/src/components/ui/dialog.tsx.tmp.13100.733501904ced",
+    "web/pnpm-lock.yaml.2562797342",
+    "web/_tmp_127799_631093f1d9fc5a610d6396ca161578fc",
+    "web/apps/partner/package.json.tmp.13100.10ad3f7b606e",
+    "web/packages/ui/package.json.tmp.13100.293dc1df773f",
+    "web/packages/api-client/package.json.tmp.13100.0ae7547aacb4",
+    "docs/frontend-walkthrough.md",
+    "web/apps/partner/app/(app)/parceiro/indicacoes/nova/page.tsx.tmp.107670.af29443c5ca8",
+    "docs/ux-flows.md",
+    "docs/wireframes.md",
+    "CLAUDE.md",
+    "docs/design-system.md",
+    "docs/frontend-scaffold.md",
+    "docs/ux-flows.v1.md",
+    "docs/architecture.md",
+    "docs/db-schema.md",
+    "docs/product-spec.md",
+    "docs/lgpd-data-policy.md"
+  ]
+}

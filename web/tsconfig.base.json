@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "jsx": "preserve",
+    "paths": {
+      "@indica/ui": ["./packages/ui/src"],
+      "@indica/ui/*": ["./packages/ui/src/*"],
+      "@indica/api-client": ["./packages/api-client/src"],
+      "@indica/api-client/*": ["./packages/api-client/src/*"],
+      "@indica/tracking": ["./packages/tracking/src"],
+      "@indica/tracking/*": ["./packages/tracking/src/*"]
+    }
+  },
+  "exclude": ["node_modules", ".next", "dist", ".turbo"]
+}

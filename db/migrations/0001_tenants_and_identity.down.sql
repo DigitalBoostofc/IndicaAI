@@ -1,0 +1,12 @@
+BEGIN;
+
+DROP TABLE IF EXISTS api_keys;
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS tenant_members;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS tenants;
+
+DROP FUNCTION IF EXISTS set_updated_at();
+
+COMMIT;

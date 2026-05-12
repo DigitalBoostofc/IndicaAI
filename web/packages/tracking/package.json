@@ -1,0 +1,18 @@
+{
+  "name": "@indica/tracking",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/widget.ts"
+  },
+  "scripts": {
+    "build": "tsup src/widget.ts --format iife --global-name indicaTracking --outDir dist",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3"
+  }
+}

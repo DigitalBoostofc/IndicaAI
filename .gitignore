@@ -1,0 +1,62 @@
+# dependencies
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+
+# next.js
+.next/
+out/
+build/
+dist/
+
+# go (futuro)
+*.exe
+*.test
+*.prof
+*.out
+bin/
+tmp/
+
+# env (NUNCA commitar segredos)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development.local
+.env.test.local
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# turbo
+.turbo/
+
+# vercel
+.vercel/
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# claude / IA
+.claude/
+
+# testes / coverage
+coverage/
+.nyc_output/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# auth / chaves locais
+*.pem
+*.key
+secrets.*

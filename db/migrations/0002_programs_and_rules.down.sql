@@ -1,0 +1,7 @@
+BEGIN;
+
+DROP TABLE IF EXISTS partner_links;
+DROP TABLE IF EXISTS partners;
+DROP TABLE IF EXISTS programs;
+
+COMMIT;

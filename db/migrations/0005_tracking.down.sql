@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP TABLE IF EXISTS attributions;
+DROP TABLE IF EXISTS click_events;
+
+COMMIT;
