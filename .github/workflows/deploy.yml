@@ -45,12 +45,14 @@ jobs:
           docker build --build-arg BINARY=worker --build-arg GIT_SHA=${{ github.sha }} -t indica-ai/worker:latest .
 
       - name: Roll services
+        id: roll
         run: |
           docker service update --force --image indica-ai/api:latest    indica-ai_indica-ai-api
           docker service update --force --image indica-ai/worker:latest indica-ai_indica-ai-worker
           docker service ls --filter name=indica-ai_indica-ai
 
       - name: Smoke /healthz (must return new commit SHA)
+        id: smoke
         env:
           EXPECTED: ${{ github.sha }}
         run: |
@@ -65,4 +67,28 @@ jobs:
             sleep 3
           done
           echo "healthz never reported the new commit SHA after 10 attempts" >&2
+          exit 1
+
+      # If the smoke step failed AFTER we already rolled new images,
+      # restore the previous spec. Swarm keeps the prior image digest in
+      # PreviousSpec, so `docker service rollback` flips both services back
+      # without rebuilding. Skipped if roll itself failed (nothing to undo).
+      - name: Rollback on smoke failure
+        if: failure() && steps.roll.outcome == 'success' && steps.smoke.outcome == 'failure'
+        run: |
+          echo "::warning::Smoke test failed — rolling Swarm services back to previous spec"
+          docker service rollback indica-ai_indica-ai-api    || echo "::error::api rollback failed"
+          docker service rollback indica-ai_indica-ai-worker || echo "::error::worker rollback failed"
+          docker service ls --filter name=indica-ai_indica-ai
+
+          # Re-verify /healthz responds 200 (commit will be the previous one, not this run's SHA).
+          for i in 1 2 3 4 5; do
+            if curl -fsS --max-time 5 "https://api.181-215-134-11.sslip.io/healthz" > /tmp/post_rollback.json; then
+              echo "post-rollback healthz: $(cat /tmp/post_rollback.json)"
+              exit 0
+            fi
+            echo "post-rollback healthz not ready (attempt $i)..."
+            sleep 3
+          done
+          echo "::error::post-rollback healthz never came back — manual intervention needed"
           exit 1
