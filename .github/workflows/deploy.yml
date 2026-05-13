@@ -37,18 +37,25 @@ jobs:
       - name: Build API image
         run: |
           cd /opt/indica-ai
-          docker build --build-arg BINARY=api --build-arg GIT_SHA=${{ github.sha }} -t indica-ai/api:latest .
+          # Tag per commit AND keep :latest as a human alias. Per-commit tag
+          # is what Swarm stores in its Spec, so PreviousSpec retains a real
+          # reference back to the prior image (without it, rollback no-ops).
+          docker build --build-arg BINARY=api --build-arg GIT_SHA=${{ github.sha }} \
+            -t indica-ai/api:${{ github.sha }} \
+            -t indica-ai/api:latest .
 
       - name: Build worker image
         run: |
           cd /opt/indica-ai
-          docker build --build-arg BINARY=worker --build-arg GIT_SHA=${{ github.sha }} -t indica-ai/worker:latest .
+          docker build --build-arg BINARY=worker --build-arg GIT_SHA=${{ github.sha }} \
+            -t indica-ai/worker:${{ github.sha }} \
+            -t indica-ai/worker:latest .
 
       - name: Roll services
         id: roll
         run: |
-          docker service update --force --image indica-ai/api:latest    indica-ai_indica-ai-api
-          docker service update --force --image indica-ai/worker:latest indica-ai_indica-ai-worker
+          docker service update --force --image indica-ai/api:${{ github.sha }}    indica-ai_indica-ai-api
+          docker service update --force --image indica-ai/worker:${{ github.sha }} indica-ai_indica-ai-worker
           docker service ls --filter name=indica-ai_indica-ai
 
       - name: Smoke /healthz (must return new commit SHA)
