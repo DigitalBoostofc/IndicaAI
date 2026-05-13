@@ -36,18 +36,41 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	if req.RedirectType == "" {
+		req.RedirectType = "website"
+	}
+	validRedirects := map[string]bool{"website": true, "whatsapp": true, "landing": true, "checkout": true}
+	if !validRedirects[req.RedirectType] {
+		writeError(w, http.StatusBadRequest, "invalid redirect_type")
+		return
+	}
+
 	tid, _ := db.GetTenantID(r.Context())
 	tenantID, _ := uuid.Parse(tid)
 	programID := uuid.New()
 
-	// For MVP, use direct pool insert. In production, this should use BeginTenant.
+	var descArg, urlArg, waArg *string
+	if req.Description != "" {
+		descArg = &req.Description
+	}
+	if req.RedirectURL != "" {
+		urlArg = &req.RedirectURL
+	}
+	if req.WhatsAppNumber != "" {
+		waArg = &req.WhatsAppNumber
+	}
+
 	_, err := h.pool.Exec(r.Context(),
 		`INSERT INTO programs (id, tenant_id, name, description, rules, redirect_type, redirect_url, whatsapp_number)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		programID, tenantID, req.Name, req.Description, req.Rules,
-		req.RedirectType, req.RedirectURL, req.WhatsAppNumber)
+		programID, tenantID, req.Name, descArg, req.Rules,
+		req.RedirectType, urlArg, waArg)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create program")
+		writeError(w, http.StatusInternalServerError, "failed to create program: "+err.Error())
 		return
 	}
 

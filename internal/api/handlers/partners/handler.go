@@ -569,8 +569,8 @@ func (h *Handler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 
-	if _, err := tx.Exec(r.Context(), "SET LOCAL app.current_tenant = $1", tenantID.String()); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to set tenant context")
+	if _, err := tx.Exec(r.Context(), "SET LOCAL app.current_tenant = '"+tenantID.String()+"'"); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to set tenant context: "+err.Error())
 		return
 	}
 

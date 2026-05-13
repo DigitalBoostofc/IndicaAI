@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -52,7 +53,11 @@ func (p *Pool) BeginTenant(ctx context.Context) (pgx.Tx, error) {
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 
-	_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = $1", tid)
+	if _, err := uuid.Parse(tid); err != nil {
+		_ = tx.Rollback(ctx)
+		return nil, fmt.Errorf("invalid tenant id: %w", err)
+	}
+	_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = '"+tid+"'")
 	if err != nil {
 		_ = tx.Rollback(ctx)
 		return nil, fmt.Errorf("set tenant: %w", err)
