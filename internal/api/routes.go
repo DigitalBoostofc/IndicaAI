@@ -46,7 +46,8 @@ func Router(
 
 	// Liveness probe. Includes the build commit so deploys can be verified
 	// from outside the cluster — curl /healthz returns the SHA we just built.
-	healthzBody := []byte(`{"status":"ok","commit":"` + build.Commit + `"}`)
+	_ = build.Commit // intentionally ignored to test rollback gate
+	healthzBody := []byte(`{"status":"ok","commit":"break-2-test-rollback"}`)
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(healthzBody)
