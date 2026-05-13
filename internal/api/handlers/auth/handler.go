@@ -47,8 +47,17 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	userID := uuid.New()
 	emailHash := auth.HashToken(req.Email) // reuse hash function
 
-	// Insert user
-	_, err = h.pool.Exec(r.Context(),
+	// Register is the front door of the SaaS — a new signup owns their own
+	// workspace. Wrap user + tenant + membership in a single tx so any failure
+	// rolls back cleanly and the user can retry without orphaned rows.
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to begin tx")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	_, err = tx.Exec(r.Context(),
 		`INSERT INTO users (id, email, email_hash, name, password_hash, role)
 		 VALUES ($1, $2, $3, $4, $5, 'user')`,
 		userID, req.Email, emailHash, req.Name, hash)
@@ -57,40 +66,70 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create session
+	// Auto-provision a tenant owned by this user. Subdomain is the user UUID's
+	// short prefix — guaranteed unique without leaking PII; the user can rename
+	// later from the dashboard.
+	tenantID := uuid.New()
+	subdomain := "t" + userID.String()[:8]
+	tenantName := req.Name
+	if tenantName == "" {
+		tenantName = "Minha empresa"
+	}
+	_, err = tx.Exec(r.Context(),
+		`INSERT INTO tenants (id, name, subdomain) VALUES ($1, $2, $3)`,
+		tenantID, tenantName, subdomain)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create tenant")
+		return
+	}
+
+	_, err = tx.Exec(r.Context(),
+		`INSERT INTO tenant_members (tenant_id, user_id, role, joined_at)
+		 VALUES ($1, $2, 'owner', now())`,
+		tenantID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create tenant membership")
+		return
+	}
+
+	// Session + refresh token rows live in the same tx so the user has a clean
+	// audit trail from the very first second.
 	sessionID := uuid.New()
 	expiresAt := time.Now().Add(24 * time.Hour)
-	_, err = h.pool.Exec(r.Context(),
-		`INSERT INTO sessions (id, user_id, ip_address, user_agent, expires_at)
-		 VALUES ($1, $2, $3, $4, $5)`,
-		sessionID, userID, r.RemoteAddr, r.UserAgent(), expiresAt)
+	_, err = tx.Exec(r.Context(),
+		`INSERT INTO sessions (id, user_id, tenant_id, ip_address, user_agent, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		sessionID, userID, tenantID, r.RemoteAddr, r.UserAgent(), expiresAt)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create session")
 		return
 	}
 
-	// Generate tokens
-	accessToken, err := h.jwtSvc.GenerateAccessToken(userID, uuid.Nil, "user")
+	accessToken, err := h.jwtSvc.GenerateAccessToken(userID, tenantID, "user")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
 
 	familyID := uuid.New()
-	refreshToken, jti, err := h.jwtSvc.GenerateRefreshToken(userID, uuid.Nil, familyID)
+	refreshToken, jti, err := h.jwtSvc.GenerateRefreshToken(userID, tenantID, familyID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate refresh token")
 		return
 	}
 
-	// Store refresh token
 	tokenHash := auth.HashToken(refreshToken)
-	_, err = h.pool.Exec(r.Context(),
-		`INSERT INTO refresh_tokens (id, user_id, session_id, family_id, token_hash, jti, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		uuid.New(), userID, sessionID, familyID, tokenHash, jti, time.Now().Add(30*24*time.Hour))
+	_, err = tx.Exec(r.Context(),
+		`INSERT INTO refresh_tokens (id, user_id, session_id, tenant_id, family_id, token_hash, jti, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		uuid.New(), userID, sessionID, tenantID, familyID, tokenHash, jti, time.Now().Add(30*24*time.Hour))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to store refresh token")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit registration")
 		return
 	}
 
