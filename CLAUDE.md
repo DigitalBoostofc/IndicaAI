@@ -255,8 +255,8 @@ Restrições: [stack definida, decisões já tomadas]
 - [x] ETAPA 2 — Arquitetura ✅ (doc em docs/architecture.md)
 - [x] ETAPA 3 — Banco de Dados ✅ (db-schema.md + lgpd-data-policy.md + 7 migrations + 15 queries sqlc)
 - [x] ETAPA 4 — UX/UI ✅ (design-system.md + wireframes.md + ux-flows.md)
-- [ ] ETAPA 5 — Backend  ← PRÓXIMA
-- [ ] ETAPA 6 — Frontend (scaffold + design system + wireframes implementados, aguardando API)
+- [x] ETAPA 5 — Backend ✅ MVP (cmd/{api,worker,migrate,seed} + internal/{domain,platform,api,workers,tracker} + docs/backend.md, fase 2 listada)
+- [ ] ETAPA 6 — Frontend (scaffold pronto + design system + wireframes implementados; conectar à API real é a próxima)  ← PRÓXIMA
 - [ ] ETAPA 7 — Pagamentos & Compliance
 - [ ] ETAPA 8 — Segurança & Anti-Fraude
 - [ ] ETAPA 9 — QA

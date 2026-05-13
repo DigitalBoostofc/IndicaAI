@@ -1,0 +1,24 @@
+# Indica AÍ! — Worker service on Fly.io (production)
+# No public HTTP. Runs the daily payout cron + future async jobs.
+# Deploy with: fly deploy --config fly.worker.toml
+
+app = "indica-worker-prod"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+  [build.args]
+    BINARY = "worker"
+
+[env]
+  LOG_LEVEL = "info"
+  LOG_FORMAT = "json"
+  APP_ENV = "production"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"
+
+[deploy]
+  strategy = "immediate"

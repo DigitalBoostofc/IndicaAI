@@ -3,35 +3,59 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Toaster, toast } from "@indica/ui";
+import { authApi, ApiError } from "../../lib/api";
 
 export default function PartnerLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [devToken, setDevToken] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email) return;
 
     setIsLoading(true);
-    setSent(true);
-
-    toast({
-      title: "Link enviado!",
-      description: `Enviamos um link de acesso para ${email}`,
-      variant: "success",
-    });
-
-    // Simula o parceiro clicando no link do e-mail após 2s
-    setTimeout(() => {
+    try {
+      const res = await authApi.requestMagicLink(email);
+      setSent(true);
+      if (res.dev_token) {
+        setDevToken(res.dev_token);
+      } else {
+        toast({
+          title: "Link enviado!",
+          description: `Enviamos um link de acesso para ${email}`,
+          variant: "success",
+        });
+      }
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Erro de rede";
       toast({
-        title: "Acesso confirmado",
-        description: "Redirecionando para seu painel...",
-        variant: "success",
+        title: "Falha ao solicitar",
+        description: msg,
+        variant: "error",
       });
-      setTimeout(() => router.push("/parceiro"), 800);
-    }, 2000);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleDevConfirm() {
+    if (!devToken) return;
+    setIsLoading(true);
+    try {
+      await authApi.verifyMagicLink(devToken);
+      router.push("/parceiro");
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : "Erro de rede";
+      toast({
+        title: "Falha ao confirmar",
+        description: msg,
+        variant: "error",
+      });
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -86,15 +110,28 @@ export default function PartnerLoginPage() {
             <p className="mt-1 text-sm text-neutral-500">
               Clique nele em até 15 minutos para acessar.
             </p>
-            <p className="mt-4 text-xs text-neutral-400">
-              Redirecionando automaticamente...
-            </p>
+
+            {devToken && (
+              <div className="mt-4 rounded-md border border-warning/40 bg-warning/5 p-3 text-left text-xs text-neutral-700 dark:text-neutral-300">
+                <p className="font-semibold">Modo dev — sem servidor de e-mail</p>
+                <p className="mt-1">Use o botão abaixo para simular o clique no link.</p>
+                <Button
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={handleDevConfirm}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Entrando..." : "Confirmar acesso (dev)"}
+                </Button>
+              </div>
+            )}
+
             <Button
               variant="outline"
               className="mt-4 w-full"
               onClick={() => {
                 setSent(false);
-                setIsLoading(false);
+                setDevToken(null);
               }}
             >
               Voltar

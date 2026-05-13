@@ -10,24 +10,79 @@ interface RewardRulePreviewProps {
   className?: string;
 }
 
-function describeReward(rules: ProgramRules): string {
-  const { reward, payout } = rules;
+type TierRewardLite = {
+  from: number;
+  to: number | null;
+  reward_type: "commission_pct" | "commission_fixed" | "product" | "points";
+  reward_value: number | string;
+};
 
-  switch (reward.type) {
-    case "commission_fixed":
-      return `Toda vez que um indicado fechar uma venda, o parceiro recebe R$ ${(reward as unknown as { amount_brl: number }).amount_brl.toLocaleString("pt-BR")} no ${payout.method === "pix" ? "Pix" : payout.method}.`;
+function describeTier(t: TierRewardLite, metricLabel: string): string {
+  const rangeLabel =
+    t.to == null
+      ? `${t.from}+ ${metricLabel}`
+      : `${t.from} a ${t.to} ${metricLabel}`;
+  let rewardLabel = "";
+  switch (t.reward_type) {
     case "commission_pct":
-      return `O parceiro recebe ${(reward as unknown as { pct: number }).pct}% sobre cada venda confirmada.`;
-    case "flexible_split":
-      return `O parceiro escolhe como dividir até ${(reward as unknown as { max_pct: number }).max_pct}% entre comissão e desconto para o cliente.`;
-    case "goal_based":
-      return `Ao atingir ${(reward as unknown as { target: number }).target} indicações aprovadas, o parceiro recebe a recompensa configurada.`;
+      rewardLabel = `${t.reward_value}% de comissão`;
+      break;
+    case "commission_fixed":
+      rewardLabel = `R$ ${Number(t.reward_value).toLocaleString("pt-BR")} por venda`;
+      break;
+    case "product":
+      rewardLabel = `produto: ${t.reward_value || "—"}`;
+      break;
     case "points":
-      return `O parceiro acumula pontos a cada indicação que se converte em venda.`;
+      rewardLabel = `${t.reward_value} pontos`;
+      break;
+  }
+  return `${rangeLabel} → ${rewardLabel}`;
+}
+
+function describeReward(rules: ProgramRules): { text?: string; tiers?: string[] } {
+  const { reward, payout } = rules;
+  const r = reward as unknown as {
+    type: string;
+    amount_brl?: number;
+    pct?: number;
+    max_pct?: number;
+    target?: number;
+    metric?: string;
+    tiers?: TierRewardLite[];
+  };
+
+  switch (r.type) {
+    case "tiered": {
+      const metric = r.metric === "sales_count"
+        ? "vendas"
+        : r.metric === "sale_amount"
+          ? "R$ em vendas"
+          : "indicações";
+      return {
+        tiers: (r.tiers || []).map((t) => describeTier(t, metric)),
+      };
+    }
+    case "commission_fixed":
+      return {
+        text: `Toda vez que um indicado fechar uma venda, o parceiro recebe R$ ${(r.amount_brl || 0).toLocaleString("pt-BR")} no ${payout.method === "pix" ? "Pix" : payout.method}.`,
+      };
+    case "commission_pct":
+      return { text: `O parceiro recebe ${r.pct ?? 0}% sobre cada venda confirmada.` };
+    case "flexible_split":
+      return {
+        text: `O parceiro escolhe como dividir até ${r.max_pct ?? 0}% entre comissão e desconto para o cliente.`,
+      };
+    case "goal_based":
+      return {
+        text: `Ao atingir ${r.target ?? 0} indicações aprovadas, o parceiro recebe a recompensa configurada.`,
+      };
+    case "points":
+      return { text: "O parceiro acumula pontos a cada indicação que se converte em venda." };
     case "cashback":
-      return `O próprio cliente indicado recebe ${(reward as unknown as { pct: number }).pct}% de cashback na compra.`;
+      return { text: `O próprio cliente indicado recebe ${r.pct ?? 0}% de cashback na compra.` };
     default:
-      return "Regra personalizada.";
+      return { text: "Regra personalizada." };
   }
 }
 
@@ -65,7 +120,25 @@ export function RewardRulePreview({ rules, onEdit, className }: RewardRulePrevie
       </div>
 
       <div className="mt-4 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
-        <p>{describeReward(rules)}</p>
+        {(() => {
+          const r = describeReward(rules);
+          if (r.tiers) {
+            if (r.tiers.length === 0) {
+              return <p className="text-neutral-400">Sem regras configuradas ainda.</p>;
+            }
+            return (
+              <ul className="space-y-1.5">
+                {r.tiers.map((line, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="mt-0.5 text-xs text-primary">●</span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+          return <p>{r.text}</p>;
+        })()}
         <p className="text-neutral-500">
           Condição: {rules.trigger === "sale.confirmed" ? "venda confirmada" : rules.trigger}
         </p>

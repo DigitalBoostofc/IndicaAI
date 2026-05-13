@@ -1,0 +1,7 @@
+# Copy to prod.tfvars and fill in the real values.
+# DO NOT commit prod.tfvars — it is gitignored.
+
+cloudflare_api_token  = "REPLACE_ME"
+cloudflare_zone_id    = "REPLACE_ME"
+cloudflare_account_id = "REPLACE_ME"
+fly_api_hostname      = "indica-api-prod.fly.dev"

@@ -28,16 +28,55 @@ export default function RegisterPage() {
     resolver: zodResolver(registerSchema),
   });
 
-  function onSubmit(_data: RegisterForm) {
+  async function onSubmit(data: RegisterForm) {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: data.email, password: data.senha, name: data.nome }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Erro" }));
+        toast({
+          title: "Erro ao criar conta",
+          description: err.error || "Tente novamente",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      const loginRes = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: data.email, password: data.senha }),
+      });
+      if (!loginRes.ok) {
+        toast({
+          title: "Conta criada!",
+          description: "Faça login pra entrar",
+          variant: "success",
+        });
+        setTimeout(() => router.push("/login"), 600);
+        return;
+      }
       toast({
         title: "Conta criada!",
         description: "Bem-vindo ao Indica AÍ! Redirecionando...",
         variant: "success",
       });
-      setTimeout(() => router.push("/dashboard"), 800);
-    }, 1000);
+      setTimeout(() => router.push("/dashboard"), 600);
+    } catch (e) {
+      toast({
+        title: "Erro de rede",
+        description: "Não foi possível conectar ao servidor",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
   }
 
   return (

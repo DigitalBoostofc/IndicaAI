@@ -23,3 +23,8 @@ UPDATE partners
 SET status = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
+
+-- name: GetPartnerByUserAndTenant :one
+SELECT * FROM partners
+WHERE user_id = $1 AND tenant_id = $2
+LIMIT 1;

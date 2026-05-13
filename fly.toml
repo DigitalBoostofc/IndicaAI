@@ -1,0 +1,41 @@
+# Indica AÍ! — API service on Fly.io (production)
+# Region: GRU (São Paulo) — primary user base is in Brazil.
+# Deploy with: fly deploy --config fly.toml
+
+app = "indica-api-prod"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+  [build.args]
+    BINARY = "api"
+
+[env]
+  HTTP_ADDR = ":8080"
+  LOG_LEVEL = "info"
+  LOG_FORMAT = "json"
+  APP_ENV = "production"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    timeout = "5s"
+    path = "/healthz"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"
+
+[deploy]
+  release_command = "/app migrate up"
+  strategy = "rolling"

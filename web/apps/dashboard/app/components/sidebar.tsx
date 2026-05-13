@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@indica/ui";
 import {
   LayoutDashboard,
@@ -12,16 +12,10 @@ import {
   Settings,
   Menu,
   X,
-  ChevronDown,
-  Building2,
+  LogOut,
 } from "lucide-react";
-import { useState } from "react";
-
-const mockTenantSwitcher = [
-  { id: "t1", nome: "Wenox Inox", plano: "Pro", inicial: "W" },
-  { id: "t2", nome: "Ótica Visão+", plano: "Starter", inicial: "O" },
-  { id: "t3", nome: "Academia Ferro+", plano: "Pro", inicial: "A" },
-];
+import { useEffect, useState } from "react";
+import { authApi, type Me } from "../lib/api";
 
 const navigation = [
   { name: "Visão geral", href: "/dashboard", icon: LayoutDashboard },
@@ -37,9 +31,29 @@ const bottomNavigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [tenantOpen, setTenantOpen] = useState(false);
-  const [currentTenant, setCurrentTenant] = useState(mockTenantSwitcher[0]);
+  const [me, setMe] = useState<Me | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    authApi.me().then(setMe).catch(() => setMe(null));
+  }, []);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await authApi.logout();
+    } catch {
+      // ignore — proceed with redirect anyway
+    }
+    router.push("/login");
+  }
+
+  const tenantInitial =
+    me?.tenant_name?.charAt(0).toUpperCase() ||
+    me?.name?.charAt(0).toUpperCase() ||
+    "?";
 
   const navContent = (
     <>
@@ -93,55 +107,29 @@ export function Sidebar() {
           );
         })}
 
-        {/* Tenant Switcher */}
-        <div className="relative mt-4">
-          <button
-            onClick={() => setTenantOpen(!tenantOpen)}
-            className="flex w-full items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-left transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
-          >
+        {/* User / Tenant card + logout */}
+        <div className="mt-4 rounded-md border border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-center gap-2 px-3 py-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary">
-              {currentTenant.inicial}
+              {tenantInitial}
             </div>
             <div className="flex-1 truncate">
-              <p className="text-sm font-medium">{currentTenant.nome}</p>
-              <p className="text-xs text-neutral-500">{currentTenant.plano}</p>
+              <p className="text-sm font-medium truncate">
+                {me?.tenant_name || "—"}
+              </p>
+              <p className="text-xs text-neutral-500 truncate">
+                {me?.email || ""}
+              </p>
             </div>
-            <ChevronDown className={cn("h-4 w-4 text-neutral-400 transition-transform", tenantOpen && "rotate-180")} />
+          </div>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex w-full items-center gap-2 border-t border-neutral-200 px-3 py-2 text-left text-sm text-neutral-600 transition-colors hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            {loggingOut ? "Saindo..." : "Sair"}
           </button>
-
-          {tenantOpen && (
-            <div className="absolute bottom-full left-0 mb-1 w-full rounded-md border border-neutral-200 bg-white shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
-              <div className="p-1">
-                <p className="px-3 py-1.5 text-xs font-medium text-neutral-400">
-                  Trocar empresa
-                </p>
-                {mockTenantSwitcher.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setCurrentTenant(t);
-                      setTenantOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                      t.id === currentTenant.id && "bg-primary-light text-primary"
-                    )}
-                  >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-100 text-xs font-bold text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
-                      {t.inicial}
-                    </div>
-                    <div className="flex-1 truncate">
-                      <p className="font-medium">{t.nome}</p>
-                      <p className="text-xs text-neutral-500">{t.plano}</p>
-                    </div>
-                    {t.id === currentTenant.id && (
-                      <span className="text-xs text-primary">Atual</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>

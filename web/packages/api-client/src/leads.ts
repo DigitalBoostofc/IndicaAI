@@ -19,7 +19,7 @@ export interface Lead {
 
 export type LeadStatus =
   | "new"
-  | "contacted"
+  | "in_progress"
   | "qualified"
   | "closed"
   | "lost";

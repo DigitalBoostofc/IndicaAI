@@ -70,6 +70,7 @@ export { LeadStatusBadge } from "./components/lead-status-badge";
 export { CommissionAmount } from "./components/commission-amount";
 export { CopyLinkButton } from "./components/copy-link-button";
 export { RewardRulePreview } from "./components/reward-rule-preview";
+export { TierBuilder, type Tier, type TierRewardType } from "./components/tier-builder";
 
 // Toast system
 export { toast, useToast, dismissToast, type Toast } from "./hooks/use-toast";

@@ -1,16 +1,26 @@
 "use client";
 
-import { Sheet, SheetContent, Badge, Button, CopyLinkButton, toast } from "@indica/ui";
-import type { MockPartner } from "@indica/api-client/mocks";
+import {
+  Sheet,
+  SheetContent,
+  Badge,
+  Button,
+  CopyLinkButton,
+  toast,
+} from "@indica/ui";
+import type { Partner } from "../../lib/api";
 
 interface ParceiroSheetProps {
-  parceiro: MockPartner;
+  parceiro: Partner;
   onClose: () => void;
 }
 
-const formatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const formatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
 
-const statusVariant: Record<MockPartner["status"], "success" | "warning" | "destructive"> = {
+const statusVariant: Record<Partner["status"], "success" | "warning" | "destructive"> = {
   active: "success",
   pending: "warning",
   suspended: "destructive",
@@ -27,68 +37,60 @@ export function ParceiroSheet({ parceiro, onClose }: ParceiroSheetProps) {
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full sm:w-[480px]">
         <div className="flex h-full flex-col">
-          {/* Header */}
           <div className="border-b border-neutral-200 pb-4 dark:border-neutral-800">
-            <h2 className="text-lg font-semibold">Parceiro: {parceiro.nome}</h2>
+            <h2 className="text-lg font-semibold">Parceiro: {parceiro.name}</h2>
             <div className="mt-2 flex items-center gap-3 text-sm text-neutral-500">
-              <span>Programa: {parceiro.programa}</span>
+              <span>Programa: {parceiro.program_name}</span>
               <Badge variant={statusVariant[parceiro.status]}>
                 {statusLabel[parceiro.status]}
               </Badge>
             </div>
             <div className="mt-2 space-y-1 text-sm text-neutral-500">
-              <p>E-mail: {parceiro.email}</p>
-              <p>Telefone: {parceiro.telefone}</p>
-              <p>Cadastrado em: {new Date(parceiro.criadoEm).toLocaleDateString("pt-BR")}</p>
+              <p>E-mail: {parceiro.email || "—"}</p>
+              <p>Telefone: {parceiro.phone_e164 || "—"}</p>
+              <p>
+                Cadastrado em:{" "}
+                {new Date(parceiro.created_at).toLocaleDateString("pt-BR")}
+              </p>
             </div>
           </div>
 
-          {/* Link de indicação */}
-          <div className="py-4">
-            <h3 className="mb-2 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
-              Link de indicação
-            </h3>
-            <CopyLinkButton url={`https://${parceiro.link}`} />
-          </div>
-
-          {/* Chave PIX */}
-          {parceiro.pixKey && (
-            <div className="pb-4">
+          {parceiro.link_url && (
+            <div className="py-4">
               <h3 className="mb-2 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
-                Chave PIX
+                Link de indicação
               </h3>
-              <p className="rounded-md border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
-                {parceiro.pixKey}{" "}
-                <span className="text-xs text-neutral-400">({parceiro.pixKeyType})</span>
-              </p>
+              <CopyLinkButton url={parceiro.link_url} />
             </div>
           )}
 
-          {/* Métricas */}
           <div className="grid grid-cols-3 gap-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
             <div>
               <p className="text-xs text-neutral-500">Indicações</p>
-              <p className="text-lg font-bold">{parceiro.indicacoes}</p>
+              <p className="text-lg font-bold">{parceiro.referrals}</p>
             </div>
             <div>
               <p className="text-xs text-neutral-500">Cliques</p>
-              <p className="text-lg font-bold">{parceiro.cliques.toLocaleString("pt-BR")}</p>
+              <p className="text-lg font-bold">
+                {parceiro.clicks.toLocaleString("pt-BR")}
+              </p>
             </div>
             <div>
               <p className="text-xs text-neutral-500">Comissão</p>
-              <p className="text-lg font-bold">{formatter.format(parceiro.comissao)}</p>
+              <p className="text-lg font-bold">
+                {formatter.format(parceiro.commission_cents / 100)}
+              </p>
             </div>
           </div>
 
-          {/* Ações */}
-          <div className="flex gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800 mt-auto">
+          <div className="mt-auto flex gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800">
             <Button
               variant="outline"
               className="flex-1"
               onClick={() =>
                 toast({
                   title: "E-mail enviado",
-                  description: `Notificação enviada para ${parceiro.email}`,
+                  description: `Notificação enviada para ${parceiro.email || "—"}`,
                   variant: "success",
                 })
               }
@@ -101,8 +103,8 @@ export function ParceiroSheet({ parceiro, onClose }: ParceiroSheetProps) {
                 className="flex-1"
                 onClick={() =>
                   toast({
-                    title: "Parceiro suspenso",
-                    description: `${parceiro.nome} foi suspenso.`,
+                    title: "Em breve",
+                    description: "Suspensão de parceiro será implementada.",
                     variant: "warning",
                   })
                 }

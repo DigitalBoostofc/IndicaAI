@@ -15,7 +15,7 @@ const statusConfig: Record<LeadStatus, { label: string; className: string; dot: 
     className: "bg-info-light text-info",
     dot: "bg-info",
   },
-  contacted: {
+  in_progress: {
     label: "Em atendimento",
     className: "bg-warning-light text-warning",
     dot: "bg-warning",

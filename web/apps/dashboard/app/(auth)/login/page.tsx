@@ -27,16 +27,40 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  function onSubmit(_data: LoginForm) {
+  async function onSubmit(data: LoginForm) {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const res = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: data.email, password: data.senha }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Erro" }));
+        toast({
+          title: "Erro ao entrar",
+          description: err.error || "Credenciais inválidas",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
       toast({
-        title: "Login simulado",
-        description: "Bem-vindo de volta! Redirecionando...",
+        title: "Bem-vindo de volta!",
+        description: "Redirecionando...",
         variant: "success",
       });
-      setTimeout(() => router.push("/dashboard"), 800);
-    }, 1000);
+      setTimeout(() => router.push("/dashboard"), 600);
+    } catch (e) {
+      toast({
+        title: "Erro de rede",
+        description: "Não foi possível conectar ao servidor",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
   }
 
   return (
