@@ -474,7 +474,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
@@ -483,7 +483,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
@@ -497,7 +497,7 @@ func setTokenCookies(w http.ResponseWriter, accessToken, refreshToken string) {
 		MaxAge:   int(15 * time.Minute.Seconds()),
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
@@ -506,7 +506,7 @@ func setTokenCookies(w http.ResponseWriter, accessToken, refreshToken string) {
 		MaxAge:   int(30 * 24 * time.Hour.Seconds()),
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	})
 }
 
