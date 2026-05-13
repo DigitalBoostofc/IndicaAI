@@ -13,9 +13,10 @@ RUN go mod download
 COPY . .
 
 ARG BINARY=api
+ARG GIT_SHA=dev
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -trimpath \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X github.com/indica-ai/indica-ai/internal/build.Commit=${GIT_SHA}" \
     -o /out/app \
     ./cmd/${BINARY}
 

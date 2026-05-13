@@ -15,6 +15,7 @@ import (
 	"github.com/indica-ai/indica-ai/internal/api/handlers/rewards"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/tracking"
 	"github.com/indica-ai/indica-ai/internal/api/middleware"
+	"github.com/indica-ai/indica-ai/internal/build"
 	"github.com/indica-ai/indica-ai/internal/domain/fraud"
 	pauth "github.com/indica-ai/indica-ai/internal/platform/auth"
 	"github.com/indica-ai/indica-ai/internal/platform/cache"
@@ -43,10 +44,12 @@ func Router(
 	rewardsH := rewards.New(pool)
 	dashH := dashboard.New(pool)
 
-	// Liveness probe — used by Fly.io health check
+	// Liveness probe. Includes the build commit so deploys can be verified
+	// from outside the cluster — curl /healthz returns the SHA we just built.
+	healthzBody := []byte(`{"status":"ok","commit":"` + build.Commit + `"}`)
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
+		w.Write(healthzBody)
 	})
 
 	// Public tracking redirect — stays at root (marketing URLs like indica.ai/r/maria-x)

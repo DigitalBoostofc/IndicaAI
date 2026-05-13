@@ -37,12 +37,12 @@ jobs:
       - name: Build API image
         run: |
           cd /opt/indica-ai
-          docker build --build-arg BINARY=api -t indica-ai/api:latest .
+          docker build --build-arg BINARY=api --build-arg GIT_SHA=${{ github.sha }} -t indica-ai/api:latest .
 
       - name: Build worker image
         run: |
           cd /opt/indica-ai
-          docker build --build-arg BINARY=worker -t indica-ai/worker:latest .
+          docker build --build-arg BINARY=worker --build-arg GIT_SHA=${{ github.sha }} -t indica-ai/worker:latest .
 
       - name: Roll services
         run: |
@@ -50,15 +50,19 @@ jobs:
           docker service update --force --image indica-ai/worker:latest indica-ai_indica-ai-worker
           docker service ls --filter name=indica-ai_indica-ai
 
-      - name: Smoke /healthz
+      - name: Smoke /healthz (must return new commit SHA)
+        env:
+          EXPECTED: ${{ github.sha }}
         run: |
-          for i in 1 2 3 4 5; do
-            if curl -fsS --max-time 5 "https://api.181-215-134-11.sslip.io/healthz" > /tmp/health.json; then
-              cat /tmp/health.json
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            BODY=$(curl -fsS --max-time 5 "https://api.181-215-134-11.sslip.io/healthz" || true)
+            GOT=$(echo "$BODY" | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p')
+            if [ "$GOT" = "$EXPECTED" ]; then
+              echo "healthz reports $GOT — match"
               exit 0
             fi
-            echo "healthz not ready yet (attempt $i), retrying..."
+            echo "attempt $i: got=$GOT expected=$EXPECTED — retrying..."
             sleep 3
           done
-          echo "healthz failed after retries" >&2
+          echo "healthz never reported the new commit SHA after 10 attempts" >&2
           exit 1
