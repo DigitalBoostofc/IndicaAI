@@ -121,6 +121,57 @@ export default function NovoProgramaPage() {
     limits: {},
   };
 
+  // Translate the UI state into the backend rule schema.
+  // Backend expects snake_case keys + specific reward.type values from rules.RewardType.
+  // The UI's "tiered" abstraction is flattened to a single reward (first tier wins for MVP).
+  function buildBackendRules() {
+    const buildReward = (): Record<string, unknown> => {
+      if (preset === "flexible_split") {
+        return { type: "flexible_split", max_pct: flexMaxPct };
+      }
+      if (preset === "recurring") {
+        const first = tiers[0];
+        return {
+          type: "recurring_commission",
+          pct: typeof first?.reward_value === "number" ? first.reward_value : 0,
+        };
+      }
+      if (preset === "goal") {
+        const goalTier = tiers.find((t) => t.reward_type === "product") ?? tiers[tiers.length - 1];
+        return {
+          type: "goal_based",
+          target: goalTier?.from ?? 1,
+          counting: { scope: "per_partner", status_required: "closed" },
+        };
+      }
+      // preset === "commission"
+      const first = tiers[0];
+      if (first?.reward_type === "commission_fixed") {
+        return {
+          type: "commission_fixed",
+          amount_brl: typeof first.reward_value === "number" ? first.reward_value : 0,
+        };
+      }
+      return {
+        type: "commission_pct",
+        pct: typeof first?.reward_value === "number" ? first.reward_value : 0,
+      };
+    };
+
+    return {
+      schema_version: 1,
+      trigger: quandoPagar,
+      attribution_window_days: Number(janelaAtribuicao) || 30,
+      reward: buildReward(),
+      payout: {
+        method: comoPagar,
+        schedule: "on_approval",
+        min_amount_brl: Number(valorMinimo) || 0,
+      },
+      limits: {},
+    };
+  }
+
   function handlePresetChange(next: Preset) {
     setPreset(next);
     if (next !== "flexible_split") {
@@ -162,13 +213,13 @@ export default function NovoProgramaPage() {
         destino === "whatsapp"
           ? "whatsapp"
           : destino === "site"
-            ? "url"
+            ? "website"
             : "landing";
 
       await programsApi.create({
         name: nome,
         description: descricao || undefined,
-        rules: rulesPreview,
+        rules: buildBackendRules(),
         redirect_type: redirectType,
         redirect_url: destino === "site" ? siteUrl : undefined,
         whatsapp_number: destino === "whatsapp" ? whatsappNumero : undefined,
