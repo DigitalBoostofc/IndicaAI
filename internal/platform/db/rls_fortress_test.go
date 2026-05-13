@@ -15,6 +15,12 @@ import (
 // This test requires a running Postgres instance with the schema migrated.
 // Set DATABASE_URL_TEST env var to run.
 func TestRLSFortress(t *testing.T) {
+	// Pre-existing test from an earlier iteration. The pool.Exec("SET LOCAL ... = $1") pattern
+	// does not work: SET LOCAL outside a transaction is a no-op and parameter binding is
+	// rejected by Postgres anyway. RLS isolation is now covered by test/integration/rls_isolation_test.go
+	// (ETAPA 9). Keeping the file as documentation of the original intent; redesign tracked separately.
+	t.Skip("superseded by test/integration/rls_isolation_test.go — pool.Exec(SET LOCAL ...) was always broken")
+
 	dbURL := os.Getenv("DATABASE_URL_TEST")
 	if dbURL == "" {
 		t.Skip("DATABASE_URL_TEST not set, skipping RLS fortress test")
