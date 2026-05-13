@@ -1,8 +1,9 @@
 name: Deploy
 
-# Auto-deploys the backend (API + worker) to the Hostinger VPS Swarm stack
-# whenever Go sources, the Dockerfile, or DB migrations change on main.
-# Manual trigger (workflow_dispatch) is preserved for ad-hoc rollouts.
+# Auto-deploys the backend (API + worker) to the Hostinger VPS Swarm stack.
+# Runs on a self-hosted GitHub runner that lives on the VPS itself, so no
+# inbound SSH is needed (Hostinger's cloud firewall blocks GitHub Actions IPs).
+# The runner user owns /opt/indica-ai and is in the `docker` group.
 on:
   push:
     branches: [main]
@@ -23,52 +24,40 @@ concurrency:
 jobs:
   deploy:
     name: Build & roll Swarm services on VPS
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, indica-ai]
     timeout-minutes: 20
     steps:
-      - name: Set up SSH
+      - name: Sync /opt/indica-ai to this commit
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          # Pin the host key (the VPS fingerprint is stable) so we don't
-          # accept a man-in-the-middle on first connect.
-          echo "${{ secrets.VPS_HOST }} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBia9LL/d5OkAyuveMiy//Saya7KmE5XxZG8GvMXBxaS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
+          cd /opt/indica-ai
+          git fetch --quiet origin main
+          git reset --hard ${{ github.sha }}
+          echo "deploying commit: $(git rev-parse --short HEAD)"
 
-      - name: Pull, build, and roll services
-        env:
-          HOST: ${{ secrets.VPS_HOST }}
-          USER: ${{ secrets.VPS_USER }}
-          SHA: ${{ github.sha }}
+      - name: Build API image
         run: |
-          ssh -i ~/.ssh/id_ed25519 "$USER@$HOST" bash -se <<EOF
-            set -euo pipefail
-            cd /opt/indica-ai
-            git fetch --quiet origin main
-            git reset --hard origin/main
-            echo "deploying commit: \$(git rev-parse --short HEAD)"
+          cd /opt/indica-ai
+          docker build --build-arg BINARY=api -t indica-ai/api:latest .
 
-            docker build --build-arg BINARY=api    -t indica-ai/api:latest    .
-            docker build --build-arg BINARY=worker -t indica-ai/worker:latest .
+      - name: Build worker image
+        run: |
+          cd /opt/indica-ai
+          docker build --build-arg BINARY=worker -t indica-ai/worker:latest .
 
-            docker service update --force --image indica-ai/api:latest    indica-ai_indica-ai-api
-            docker service update --force --image indica-ai/worker:latest indica-ai_indica-ai-worker
-
-            docker service ls --filter name=indica-ai_indica-ai
-          EOF
+      - name: Roll services
+        run: |
+          docker service update --force --image indica-ai/api:latest    indica-ai_indica-ai-api
+          docker service update --force --image indica-ai/worker:latest indica-ai_indica-ai-worker
+          docker service ls --filter name=indica-ai_indica-ai
 
       - name: Smoke /healthz
-        env:
-          HOST: ${{ secrets.VPS_HOST }}
         run: |
-          # Hit the public hostname so we exercise Traefik + TLS, not just the container.
           for i in 1 2 3 4 5; do
             if curl -fsS --max-time 5 "https://api.181-215-134-11.sslip.io/healthz" > /tmp/health.json; then
               cat /tmp/health.json
               exit 0
             fi
-            echo "healthz not ready yet (attempt \$i), retrying..."
+            echo "healthz not ready yet (attempt $i), retrying..."
             sleep 3
           done
           echo "healthz failed after retries" >&2
