@@ -473,19 +473,22 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var email, name string
+	var email, name, role string
+	var emailVerified bool
 	var tenantName *string
 	h.pool.QueryRow(r.Context(),
-		`SELECT u.email, u.name, t.name
+		`SELECT u.email, u.name, u.role, u.email_verified, t.name
 		   FROM users u
 		   LEFT JOIN tenants t ON t.id = $2
 		  WHERE u.id = $1`,
-		claims.UserID, claims.TenantID).Scan(&email, &name, &tenantName)
+		claims.UserID, claims.TenantID).Scan(&email, &name, &role, &emailVerified, &tenantName)
 
 	resp := map[string]interface{}{
-		"id":    claims.UserID,
-		"email": email,
-		"name":  name,
+		"id":             claims.UserID,
+		"email":          email,
+		"name":           name,
+		"role":           role,
+		"email_verified": emailVerified,
 	}
 	if claims.TenantID != uuid.Nil {
 		resp["tenant_id"] = claims.TenantID

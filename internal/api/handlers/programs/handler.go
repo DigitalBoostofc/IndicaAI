@@ -177,6 +177,47 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, programs)
 }
 
+// UpdateStatus handles PATCH /programs/{id}/status.
+func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid program id")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	validStatuses := map[string]bool{"draft": true, "active": true, "paused": true, "archived": true}
+	if !validStatuses[req.Status] {
+		writeError(w, http.StatusBadRequest, "invalid status")
+		return
+	}
+
+	tid, _ := db.GetTenantID(r.Context())
+	tenantID, _ := uuid.Parse(tid)
+
+	tag, err := h.pool.Exec(r.Context(),
+		`UPDATE programs SET status = $1, updated_at = now() WHERE id = $2 AND tenant_id = $3`,
+		req.Status, id, tenantID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update status")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		writeError(w, http.StatusNotFound, "program not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": req.Status})
+}
+
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

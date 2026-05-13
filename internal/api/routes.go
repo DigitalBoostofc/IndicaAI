@@ -7,9 +7,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/auth"
+	"github.com/indica-ai/indica-ai/internal/api/handlers/dashboard"
+	"github.com/indica-ai/indica-ai/internal/api/handlers/leads"
 	partnerH "github.com/indica-ai/indica-ai/internal/api/handlers/partners"
 	payoutH "github.com/indica-ai/indica-ai/internal/api/handlers/payouts"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/programs"
+	"github.com/indica-ai/indica-ai/internal/api/handlers/rewards"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/tracking"
 	"github.com/indica-ai/indica-ai/internal/api/middleware"
 	"github.com/indica-ai/indica-ai/internal/domain/fraud"
@@ -36,6 +39,9 @@ func Router(
 	payoutsH := payoutH.New(pool)
 	fraudEngine := fraud.NewEngine(pool, logger)
 	partnersH := partnerH.New(pool, fraudEngine, logger)
+	leadsH := leads.New(pool)
+	rewardsH := rewards.New(pool)
+	dashH := dashboard.New(pool)
 
 	// Liveness probe — used by Fly.io health check
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +92,17 @@ func Router(
 				r.Post("/", programsH.Create)
 				r.Get("/", programsH.List)
 				r.Get("/{id}", programsH.Get)
+				r.Patch("/{id}/status", programsH.UpdateStatus)
 			})
+
+			// Partners (tenant-admin CRUD)
+			r.Route("/partners", func(r chi.Router) {
+				r.Get("/", partnersH.AdminList)
+				r.Post("/", partnersH.AdminCreate)
+			})
+
+			// Dashboard overview
+			r.Get("/dashboard/overview", dashH.Overview)
 
 			// Tenants — admin payout management
 			r.Route("/tenants/me/payouts", func(r chi.Router) {
@@ -111,18 +127,18 @@ func Router(
 				r.Post("/leads", partnersH.CreateLead)
 			})
 
-			// Leads (placeholder)
+			// Leads (tenant-admin)
 			r.Route("/leads", func(r chi.Router) {
-				r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-					w.Write([]byte(`{"leads":[]}`))
-				})
+				r.Get("/", leadsH.List)
+				r.Patch("/{id}/status", leadsH.UpdateStatus)
 			})
 
-			// Rewards (placeholder)
+			// Rewards (tenant-admin)
 			r.Route("/rewards", func(r chi.Router) {
-				r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-					w.Write([]byte(`{"rewards":[]}`))
-				})
+				r.Get("/", rewardsH.List)
+				r.Get("/summary", rewardsH.Summary)
+				r.Patch("/{id}/approve", rewardsH.Approve)
+				r.Patch("/{id}/reject", rewardsH.Reject)
 			})
 
 			// Session introspection — returns the authenticated user's profile

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -476,6 +477,189 @@ func pointerIfNotEmpty(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// ---------- Tenant-admin partner CRUD (called by the dashboard) ----------
+
+func trackingBaseURL() string {
+	if v := os.Getenv("TRACKING_BASE_URL"); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	return "https://api.181-215-134-11.sslip.io"
+}
+
+type partnerAdminResponse struct {
+	ID              uuid.UUID `json:"id"`
+	Name            string    `json:"name"`
+	Email           *string   `json:"email"`
+	PhoneE164       *string   `json:"phone_e164"`
+	Status          string    `json:"status"`
+	ProgramID       uuid.UUID `json:"program_id"`
+	ProgramName     string    `json:"program_name"`
+	LinkSlug        *string   `json:"link_slug"`
+	LinkURL         *string   `json:"link_url"`
+	Referrals       int64     `json:"referrals"`
+	Clicks          int64     `json:"clicks"`
+	CommissionCents int64     `json:"commission_cents"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+type createPartnerAdminRequest struct {
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	PhoneE164 string `json:"phone_e164"`
+	ProgramID string `json:"program_id"`
+}
+
+// AdminCreate handles POST /api/partners — admin invites a partner into one
+// of their programs. Creates partner + partner_link atomically so the admin
+// has a shareable URL immediately.
+func (h *Handler) AdminCreate(w http.ResponseWriter, r *http.Request) {
+	var req createPartnerAdminRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	programID, err := uuid.Parse(req.ProgramID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid program_id")
+		return
+	}
+
+	tid, _ := db.GetTenantID(r.Context())
+	tenantID, _ := uuid.Parse(tid)
+
+	var programName string
+	err = h.pool.QueryRow(r.Context(),
+		`SELECT name FROM programs WHERE id = $1 AND tenant_id = $2`,
+		programID, tenantID).Scan(&programName)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "program not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to verify program")
+		return
+	}
+
+	partnerID := uuid.New()
+	var emailArg, emailHashArg, phoneArg, phoneHashArg *string
+	if req.Email != "" {
+		em := strings.ToLower(strings.TrimSpace(req.Email))
+		emailArg = &em
+		eh := hashLower(em)
+		emailHashArg = &eh
+	}
+	if req.PhoneE164 != "" {
+		p := strings.TrimSpace(req.PhoneE164)
+		phoneArg = &p
+		ph := hashLower(p)
+		phoneHashArg = &ph
+	}
+
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to begin tx")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	if _, err := tx.Exec(r.Context(), "SET LOCAL app.current_tenant = $1", tenantID.String()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to set tenant context")
+		return
+	}
+
+	_, err = tx.Exec(r.Context(),
+		`INSERT INTO partners (id, tenant_id, program_id, name, email, email_hash, phone_e164, phone_hash, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')`,
+		partnerID, tenantID, programID, req.Name,
+		emailArg, emailHashArg, phoneArg, phoneHashArg)
+	if err != nil {
+		writeError(w, http.StatusConflict, "partner with this email or phone already exists in the program")
+		return
+	}
+
+	slug := partnerID.String()[:8]
+	url := trackingBaseURL() + "/r/" + slug
+	_, err = tx.Exec(r.Context(),
+		`INSERT INTO partner_links (tenant_id, program_id, partner_id, slug, url)
+		 VALUES ($1, $2, $3, $4, $5)`,
+		tenantID, programID, partnerID, slug, url)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create tracking link")
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, partnerAdminResponse{
+		ID:          partnerID,
+		Name:        req.Name,
+		Email:       emailArg,
+		PhoneE164:   phoneArg,
+		Status:      "active",
+		ProgramID:   programID,
+		ProgramName: programName,
+		LinkSlug:    &slug,
+		LinkURL:     &url,
+		Referrals:   0,
+		Clicks:      0,
+		CreatedAt:   time.Now(),
+	})
+}
+
+// AdminList handles GET /api/partners — flat list of every partner in the
+// tenant with the aggregates the dashboard table renders.
+func (h *Handler) AdminList(w http.ResponseWriter, r *http.Request) {
+	tid, _ := db.GetTenantID(r.Context())
+	tenantID, _ := uuid.Parse(tid)
+
+	rows, err := h.pool.Query(r.Context(),
+		`SELECT
+		    pa.id, pa.name, pa.email, pa.phone_e164, pa.status, pa.created_at,
+		    pa.program_id, prog.name,
+		    pl.slug, pl.url,
+		    COALESCE(pl.click_count, 0)::bigint AS clicks,
+		    (SELECT COUNT(*)::bigint FROM referrals WHERE partner_id = pa.id) AS referrals,
+		    COALESCE((SELECT SUM(amount_cents)::bigint FROM rewards
+		               WHERE partner_id = pa.id AND status IN ('approved','paid')), 0) AS commission
+		 FROM partners pa
+		 JOIN programs prog ON prog.id = pa.program_id
+		 LEFT JOIN LATERAL (
+		    SELECT slug, url, click_count FROM partner_links
+		     WHERE partner_id = pa.id ORDER BY created_at DESC LIMIT 1
+		 ) pl ON true
+		 WHERE pa.tenant_id = $1
+		 ORDER BY pa.created_at DESC`,
+		tenantID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list partners")
+		return
+	}
+	defer rows.Close()
+
+	out := make([]partnerAdminResponse, 0)
+	for rows.Next() {
+		var p partnerAdminResponse
+		if err := rows.Scan(
+			&p.ID, &p.Name, &p.Email, &p.PhoneE164, &p.Status, &p.CreatedAt,
+			&p.ProgramID, &p.ProgramName,
+			&p.LinkSlug, &p.LinkURL,
+			&p.Clicks, &p.Referrals, &p.CommissionCents,
+		); err != nil {
+			continue
+		}
+		out = append(out, p)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
