@@ -32,9 +32,13 @@ func NewRouter(logger *slog.Logger) *chi.Mux {
 	// Timeout
 	r.Use(chimw.Timeout(30 * time.Second))
 
-	// CORS
+	// CORS — production domain + Vercel preview + local dev
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*.indica.ai", "http://localhost:*"},
+		AllowedOrigins: []string{
+			"https://*.indica.ai",
+			"https://*.vercel.app", // Vercel preview + production aliases
+			"http://localhost:*",
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "Idempotency-Key", "X-API-Key"},
 		ExposedHeaders:   []string{"X-Request-ID"},
