@@ -34,6 +34,34 @@ jobs:
           git reset --hard ${{ github.sha }}
           echo "deploying commit: $(git rev-parse --short HEAD)"
 
+      # Take a Postgres backup before applying any migration so we have a
+      # restore point if the schema change goes wrong. Reuses the same
+      # script that cron runs nightly (needs root for /var/backups +
+      # /var/log/indica-ai-backup.log).
+      - name: Pre-migrate Postgres backup
+        run: |
+          sudo /usr/local/bin/indica-ai-backup
+          ls -la /var/backups/indica-ai/ | tail -3
+
+      # Build the migrate image from this commit's source and run it
+      # against the prod DB. Secrets file is root-only, so we cat it
+      # via sudo and source the output.
+      - name: Apply DB migrations
+        run: |
+          cd /opt/indica-ai
+          docker build --build-arg BINARY=migrate -t indica-ai/migrate:${{ github.sha }} .
+
+          eval "$(sudo cat /etc/indica-ai/secrets.env | grep -E '^(POSTGRES_PASSWORD|JWT_SECRET)=' | sed 's/^/export /')"
+
+          docker run --rm \
+            --network indica-ai_indica-internal \
+            -v /opt/indica-ai/db:/db:ro \
+            -e DATABASE_URL="postgres://indica:${POSTGRES_PASSWORD}@indica-ai-db:5432/indica_ai?sslmode=disable" \
+            -e REDIS_URL=redis://indica-ai-redis:6379 \
+            -e JWT_SECRET="${JWT_SECRET}" \
+            -w / \
+            indica-ai/migrate:${{ github.sha }} -direction=up
+
       - name: Snapshot current image as :previous (rollback target)
         # Captures whichever SHA is running RIGHT NOW and re-tags it as
         # :previous. Done BEFORE the new build so the tag points to a known

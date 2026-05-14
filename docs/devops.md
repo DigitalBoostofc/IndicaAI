@@ -4,6 +4,16 @@
 > Dependências lidas: `docs/architecture.md`, `docs/backend.md`, `docs/qa-plan.md`, `docs/security-antifraud.md`, `docs/payments-compliance.md`
 > Consumidores: qualquer engenheiro executando deploy, CI, ou provisionamento de infra.
 
+> **🚨 Estado real (atualizado 2026-05-14):** o MVP NÃO seguiu integralmente esta proposta de plataforma. Em vez de Fly.io + R2 + Terraform, foi parar em **VPS Hostinger única + Docker Swarm + GitHub Actions self-hosted runner**, principalmente por custo. Para a operação atual, ver:
+>
+> - `docs/disaster-recovery.md` — runbook de incidentes
+> - `docs/release-checklist.md` — checklist pré-release
+> - `docs/security-audit.md` — postura de segurança
+> - `scripts/indica-ai-backup.sh` — backup automatizado
+> - `.github/workflows/{ci,deploy,monitor}.yml` — pipeline real em produção
+>
+> As seções abaixo continuam válidas como **referência conceitual** e plano de evolução pós-MVP (quando o custo de Fly.io / IaC formal compensar).
+
 ---
 
 ## 1. Decisão de Plataformas

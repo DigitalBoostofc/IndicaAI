@@ -1,0 +1,54 @@
+name: Monitor
+
+# Pings /healthz every 5 minutes from a GitHub-hosted runner. Failure
+# triggers GitHub's built-in workflow-failure email to repo admins —
+# zero infra, zero third-party account.
+#
+# Runs on `ubuntu-latest` (not the self-hosted VPS runner) so a dead
+# VPS doesn't also kill the watchdog.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: monitor
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Healthz + tracking redirect
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: /healthz returns 200 with a commit SHA
+        run: |
+          set -e
+          body=$(curl -fsS --max-time 10 "https://api.181-215-134-11.sslip.io/healthz")
+          echo "body: $body"
+
+          # Must include status:ok
+          echo "$body" | grep -q '"status":"ok"' || {
+            echo "::error::/healthz body did not contain status:ok"
+            exit 1
+          }
+
+          # Must include a non-empty commit field
+          sha=$(echo "$body" | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p')
+          if [ -z "$sha" ] || [ "$sha" = "dev" ]; then
+            echo "::error::/healthz returned no commit SHA (got: \"$sha\")"
+            exit 1
+          fi
+          echo "ok — commit=$sha"
+
+      - name: Tracking redirect endpoint reachable
+        run: |
+          # The redirect itself returns 404 for an invalid slug, which is
+          # fine — what we're checking is that the route + Traefik are alive.
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+            "https://api.181-215-134-11.sslip.io/r/healthcheck")
+          if [ "$code" = "000" ]; then
+            echo "::error::/r/* unreachable (curl returned 000 / timeout)"
+            exit 1
+          fi
+          echo "ok — /r/* responded with $code"
