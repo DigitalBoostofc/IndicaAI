@@ -213,3 +213,50 @@ export const programsApi = {
   updateStatus: (id: string, status: string) =>
     api.patch<{ status: string }>(`/api/programs/${id}/status`, { status }),
 };
+
+export type PayoutStatus =
+  | "pending"
+  | "processing"
+  | "paid"
+  | "failed"
+  | "cancelled";
+
+export interface Payout {
+  id: string;
+  partner_id: string;
+  partner_name: string;
+  pix_key: string | null;
+  pix_key_type: string | null;
+  amount_cents: number;
+  currency: string;
+  method: string;
+  status: PayoutStatus;
+  created_at: string;
+  reward_count: number | null;
+}
+
+export interface PayoutsResponse {
+  payouts: Payout[];
+  total_count: number;
+  page: number;
+  limit: number;
+}
+
+export const payoutsApi = {
+  list: (filters?: { status?: PayoutStatus; page?: number; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.page) params.set("page", String(filters.page));
+    if (filters?.limit) params.set("limit", String(filters.limit));
+    const qs = params.toString();
+    return api.get<PayoutsResponse>(`/api/tenants/me/payouts${qs ? `?${qs}` : ""}`);
+  },
+  createJob: () =>
+    api.post<{ created: number }>("/api/tenants/me/payouts/create-job"),
+  confirm: (id: string) =>
+    api.post<{ status: string; message?: string }>(`/api/tenants/me/payouts/${id}/confirm`),
+  paid: (id: string, body?: { receipt_url?: string; paid_at?: string }) =>
+    api.post<{ status: string; message?: string }>(`/api/tenants/me/payouts/${id}/paid`, body),
+  cancel: (id: string, reason?: string) =>
+    api.post<{ status: string }>(`/api/tenants/me/payouts/${id}/cancel`, reason ? { reason } : undefined),
+};
