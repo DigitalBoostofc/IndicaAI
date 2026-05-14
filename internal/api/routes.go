@@ -9,6 +9,7 @@ import (
 	"github.com/indica-ai/indica-ai/internal/api/handlers/auth"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/dashboard"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/leads"
+	"github.com/indica-ai/indica-ai/internal/api/handlers/lgpd"
 	partnerH "github.com/indica-ai/indica-ai/internal/api/handlers/partners"
 	payoutH "github.com/indica-ai/indica-ai/internal/api/handlers/payouts"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/programs"
@@ -43,6 +44,7 @@ func Router(
 	leadsH := leads.New(pool)
 	rewardsH := rewards.New(pool)
 	dashH := dashboard.New(pool)
+	lgpdH := lgpd.New(pool, logger)
 
 	// Liveness probe. Includes the build commit so deploys can be verified
 	// from outside the cluster — curl /healthz returns the SHA we just built.
@@ -147,14 +149,18 @@ func Router(
 			// Session introspection — returns the authenticated user's profile
 			r.Get("/me", authH.Me)
 
-			// LGPD (placeholder)
+			// LGPD — data export, erasure, request history
 			r.Route("/me/lgpd", func(r chi.Router) {
-				r.Post("/export", func(w http.ResponseWriter, r *http.Request) {
-					w.Write([]byte(`{"status":"pending"}`))
-				})
-				r.Post("/erase", func(w http.ResponseWriter, r *http.Request) {
-					w.Write([]byte(`{"status":"pending"}`))
-				})
+				r.Post("/export", lgpdH.RequestExport)
+				r.Post("/erase", lgpdH.RequestErase)
+				r.Get("/requests", lgpdH.ListRequests)
+			})
+
+			// Consents — what the user has agreed to (and can revoke)
+			r.Route("/me/consents", func(r chi.Router) {
+				r.Get("/", lgpdH.ListConsents)
+				r.Post("/", lgpdH.Grant)
+				r.Delete("/{id}", lgpdH.Revoke)
 			})
 		})
 

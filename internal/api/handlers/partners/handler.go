@@ -402,7 +402,9 @@ func (h *Handler) CreateLead(w http.ResponseWriter, r *http.Request) {
 
 	// SEC-01: arm Postgres RLS for this transaction so a logic bug in our
 	// explicit tenant_id filtering can't leak data across tenants.
-	if _, err := tx.Exec(r.Context(), "SET LOCAL app.current_tenant = $1", tid); err != nil {
+	// Bind parameters don't work for SET LOCAL via pgx — interpolate the
+	// already-parsed UUID directly so the GUC actually lands.
+	if _, err := tx.Exec(r.Context(), "SET LOCAL app.current_tenant = '"+tenantID.String()+"'"); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to set tenant context")
 		return
 	}

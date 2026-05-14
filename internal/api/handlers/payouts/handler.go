@@ -196,7 +196,10 @@ func (h *Handler) Paid(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	// Set tenant for RLS
-	tx.Exec(r.Context(), "SET LOCAL app.current_tenant = $1", tenantID.String())
+	// SET LOCAL doesn't accept bind parameters via prepared-statement protocol —
+	// interpolate the (already-parsed) UUID directly so the GUC actually lands
+	// and RLS sees the right tenant inside the tx.
+	tx.Exec(r.Context(), "SET LOCAL app.current_tenant = '"+tenantID.String()+"'")
 
 	// Transition processing → paid
 	var payoutIDOut uuid.UUID
@@ -270,7 +273,10 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 
-	tx.Exec(r.Context(), "SET LOCAL app.current_tenant = $1", tenantID.String())
+	// SET LOCAL doesn't accept bind parameters via prepared-statement protocol —
+	// interpolate the (already-parsed) UUID directly so the GUC actually lands
+	// and RLS sees the right tenant inside the tx.
+	tx.Exec(r.Context(), "SET LOCAL app.current_tenant = '"+tenantID.String()+"'")
 
 	var payoutIDOut uuid.UUID
 	err = tx.QueryRow(r.Context(),
