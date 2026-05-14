@@ -52,11 +52,15 @@ if ! gzip -t "$out" 2>/dev/null; then
   log "ERROR: $out is not a valid gzip — aborting"
   exit 1
 fi
-if ! gzip -dc "$out" | grep -q "CREATE TABLE.*tenants"; then
+# grep -q would close stdin on the first match, sending SIGPIPE to
+# gzip; pipefail then trips the check even though the table is there.
+# grep -c keeps reading until EOF, so the pipeline exits clean.
+matches=$(gzip -dc "$out" | grep -c "CREATE TABLE.*tenants" || true)
+if [ "$matches" -lt 1 ]; then
   log "ERROR: $out does not contain the tenants table — aborting"
   exit 1
 fi
-log "backup verified"
+log "backup verified ($matches CREATE TABLE.*tenants matches)"
 
 # Retention: delete dumps older than RETENTION_DAYS days.
 deleted=$(find "$BACKUP_DIR" -name "indica_ai-*.sql.gz" -type f -mtime +$RETENTION_DAYS -print -delete | wc -l)
