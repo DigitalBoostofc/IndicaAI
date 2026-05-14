@@ -135,14 +135,17 @@ jobs:
         run: |
           for repo in indica-ai/api indica-ai/worker; do
             echo "--- pruning $repo (keep 5 newest commit tags + :latest + :previous) ---"
-            # Newest 5 SHA tags by image creation time.
+            # Newest 5 SHA tags by image creation time. tr collapses newlines
+            # to spaces so the membership check below treats each tag as a
+            # space-delimited token.
             recent=$(docker images --filter "reference=${repo}" --format '{{.CreatedAt}}|{{.Tag}}' \
               | grep -vE '\|(latest|previous)$' \
-              | sort -r | head -5 | cut -d'|' -f2-)
-            keep="latest previous $recent"
+              | sort -r | head -5 | cut -d'|' -f2- | tr '\n' ' ')
+            keep=" latest previous ${recent}"
+            echo "  keep: $keep"
             docker images --filter "reference=${repo}" --format '{{.Tag}}' | while read tag; do
               [ -z "$tag" ] && continue
-              if ! echo " $keep " | grep -qF " $tag "; then
+              if ! echo "$keep" | grep -qF " ${tag} "; then
                 echo "  rmi ${repo}:${tag}"
                 docker rmi "${repo}:${tag}" >/dev/null 2>&1 || true
               fi
