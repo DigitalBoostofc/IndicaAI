@@ -161,12 +161,14 @@ func TestE2EHappyPath(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		// partners.program_id is NOT NULL — each partner belongs to one program.
-		partnerUserID = uuid.New()
+		// user_id is nullable; leaving null keeps the test independent of a
+		// real partner account (which isn't part of this admin-side flow).
+		_ = partnerUserID
 		partnerID = uuid.New().String()
 		_, err := pool.Exec(ctx,
-			`INSERT INTO partners (id, tenant_id, program_id, user_id, name, email, phone_e164, phone_hash, pix_key, status)
-			 VALUES ($1, $2, $3, $4, 'Karine E2E', 'karine@e2e.com', '+5511999999999', $5, 'karine@pix.com', 'active')`,
-			partnerID, tenantID, programID, partnerUserID, auth.HashToken("+5511999999999"))
+			`INSERT INTO partners (id, tenant_id, program_id, name, email, phone_e164, phone_hash, pix_key, status)
+			 VALUES ($1, $2, $3, 'Karine E2E', 'karine@e2e.com', '+5511999999999', $4, 'karine@pix.com', 'active')`,
+			partnerID, tenantID, programID, auth.HashToken("+5511999999999"))
 		require.NoError(t, err)
 	})
 
