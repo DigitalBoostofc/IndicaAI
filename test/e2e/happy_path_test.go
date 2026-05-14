@@ -15,6 +15,7 @@ import (
 	"github.com/indica-ai/indica-ai/internal/api"
 	"github.com/indica-ai/indica-ai/internal/api/dto"
 	"github.com/indica-ai/indica-ai/internal/platform/auth"
+	"github.com/indica-ai/indica-ai/internal/platform/cache"
 	"github.com/indica-ai/indica-ai/internal/platform/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -42,8 +43,17 @@ func TestE2EHappyPath(t *testing.T) {
 	}
 	jwtSvc := auth.NewJWTService(cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
-	// Build router
-	router := api.Router(nil, pool, jwtSvc, nil, "test")
+	// Rate-limit middlewares are fail-closed; without a Redis client every
+	// request hits 503. Connect to the same Redis the CI service exposes.
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379"
+	}
+	redisClient, err := cache.New(ctx, redisURL)
+	require.NoError(t, err)
+	defer redisClient.Close()
+
+	router := api.Router(nil, pool, jwtSvc, redisClient, "test")
 
 	// Test data
 	tenantID := uuid.New()
