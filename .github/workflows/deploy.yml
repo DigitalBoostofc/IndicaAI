@@ -34,12 +34,31 @@ jobs:
           git reset --hard ${{ github.sha }}
           echo "deploying commit: $(git rev-parse --short HEAD)"
 
+      - name: Snapshot current image as :previous (rollback target)
+        # Captures whichever SHA is running RIGHT NOW and re-tags it as
+        # :previous. Done BEFORE the new build so the tag points to a known
+        # good image. We can't rely on Swarm's PreviousSpec — something
+        # outside this pipeline (probably EasyPanel) prunes images even
+        # while Swarm still references them.
+        run: |
+          for svc in indica-ai-api indica-ai-worker; do
+            repo="indica-ai/${svc#indica-ai-}"
+            current=$(docker service inspect indica-ai_${svc} \
+              --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')
+            if docker image inspect "$current" >/dev/null 2>&1; then
+              echo "tagging $current as ${repo}:previous"
+              docker tag "$current" "${repo}:previous"
+            else
+              echo "::warning::current image $current is gone from the daemon — :previous will not be updated"
+            fi
+          done
+
       - name: Build API image
         run: |
           cd /opt/indica-ai
-          # Tag per commit AND keep :latest as a human alias. Per-commit tag
-          # is what Swarm stores in its Spec, so PreviousSpec retains a real
-          # reference back to the prior image (without it, rollback no-ops).
+          # Tag per commit + :latest for humans. Per-commit tag is what
+          # Swarm references in Spec.Image; the explicit :previous handling
+          # above is what guarantees rollback has a real target to flip to.
           docker build --build-arg BINARY=api --build-arg GIT_SHA=${{ github.sha }} \
             -t indica-ai/api:${{ github.sha }} \
             -t indica-ai/api:latest .
@@ -77,18 +96,26 @@ jobs:
           exit 1
 
       # If the smoke step failed AFTER we already rolled new images,
-      # restore the previous spec. Swarm keeps the prior image digest in
-      # PreviousSpec, so `docker service rollback` flips both services back
-      # without rebuilding. Skipped if roll itself failed (nothing to undo).
+      # flip both services back to whatever :previous points to (set in the
+      # snapshot step above). Skipped if roll itself failed (nothing to
+      # undo) or if :previous doesn't exist on the daemon.
       - name: Rollback on smoke failure
         if: failure() && steps.roll.outcome == 'success' && steps.smoke.outcome == 'failure'
         run: |
-          echo "::warning::Smoke test failed — rolling Swarm services back to previous spec"
-          docker service rollback indica-ai_indica-ai-api    || echo "::error::api rollback failed"
-          docker service rollback indica-ai_indica-ai-worker || echo "::error::worker rollback failed"
+          echo "::warning::Smoke test failed — rolling Swarm services back to :previous"
+          for svc in indica-ai-api indica-ai-worker; do
+            repo="indica-ai/${svc#indica-ai-}"
+            if docker image inspect "${repo}:previous" >/dev/null 2>&1; then
+              docker service update --force --image "${repo}:previous" "indica-ai_${svc}" \
+                || echo "::error::${svc} rollback service-update failed"
+            else
+              echo "::error::${repo}:previous tag missing — cannot auto-rollback ${svc}"
+              exit 1
+            fi
+          done
           docker service ls --filter name=indica-ai_indica-ai
 
-          # Re-verify /healthz responds 200 (commit will be the previous one, not this run's SHA).
+          # Confirm /healthz is responding again — body will be the previous SHA, not this run's.
           for i in 1 2 3 4 5; do
             if curl -fsS --max-time 5 "https://api.181-215-134-11.sslip.io/healthz" > /tmp/post_rollback.json; then
               echo "post-rollback healthz: $(cat /tmp/post_rollback.json)"
@@ -99,3 +126,28 @@ jobs:
           done
           echo "::error::post-rollback healthz never came back — manual intervention needed"
           exit 1
+
+      # Keep the 5 most-recently-built per-commit tags per service, plus
+      # the protected aliases (:latest, :previous). Runs whether the deploy
+      # succeeded or fell back so disk stays bounded either way.
+      - name: Prune old image tags
+        if: always() && steps.roll.outcome == 'success'
+        run: |
+          for repo in indica-ai/api indica-ai/worker; do
+            echo "--- pruning $repo (keep 5 newest commit tags + :latest + :previous) ---"
+            # Newest 5 SHA tags by image creation time.
+            recent=$(docker images --filter "reference=${repo}" --format '{{.CreatedAt}}|{{.Tag}}' \
+              | grep -vE '\|(latest|previous)$' \
+              | sort -r | head -5 | cut -d'|' -f2-)
+            keep="latest previous $recent"
+            docker images --filter "reference=${repo}" --format '{{.Tag}}' | while read tag; do
+              [ -z "$tag" ] && continue
+              if ! echo " $keep " | grep -qF " $tag "; then
+                echo "  rmi ${repo}:${tag}"
+                docker rmi "${repo}:${tag}" >/dev/null 2>&1 || true
+              fi
+            done
+          done
+          docker image prune -f >/dev/null
+          echo "--- disk after prune ---"
+          docker system df
