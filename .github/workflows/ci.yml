@@ -56,10 +56,10 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgres://indica:indica_test@localhost:5432/indica_ai_test?sslmode=disable
-      # DATABASE_URL_TEST intentionally unset: integration/E2E tests in test/{integration,e2e}/
-      # have schema bugs from initial authoring (invalid users.role values, missing partner
-      # FK setup, references to non-existent leads.partner_id). They self-skip when this
-      # env var is absent. Re-enable after fixing test setup.
+      # Integration/E2E tests self-skip when DATABASE_URL_TEST is unset.
+      # Pointing it at the CI postgres turns them back on now that the
+      # schema bugs from the initial authoring are fixed (ETAPA 9).
+      DATABASE_URL_TEST: postgres://indica:indica_test@localhost:5432/indica_ai_test?sslmode=disable
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-test-secret-not-for-production
       APP_ENV: test

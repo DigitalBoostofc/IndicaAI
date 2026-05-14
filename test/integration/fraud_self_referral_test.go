@@ -205,7 +205,8 @@ func TestFraudSelfReferralBlocked(t *testing.T) {
 		require.NoError(t, err)
 		defer tx.Rollback(ctx)
 
-		_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = $1", tenantID.String())
+		// pgx silently no-ops SET LOCAL bind params; interpolate the UUID instead.
+		_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = '"+tenantID.String()+"'")
 		require.NoError(t, err)
 
 		var count int

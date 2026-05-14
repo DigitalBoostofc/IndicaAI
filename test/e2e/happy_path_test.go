@@ -59,9 +59,11 @@ func TestE2EHappyPath(t *testing.T) {
 
 	adminEmail := fmt.Sprintf("admin-%s@test.com", uuid.New().String()[:8])
 	adminHash, _ := auth.HashPassword("AdminPass123!")
+	// users.role only accepts 'user' or 'saas_admin'. Tenant-scoped ownership
+	// lives on tenant_members.role (which does accept 'owner').
 	_, err = pool.Exec(ctx,
 		`INSERT INTO users (id, email, email_hash, name, password_hash, role)
-		 VALUES ($1, $2, $3, 'Admin', $4, 'admin')`,
+		 VALUES ($1, $2, $3, 'Admin', $4, 'user')`,
 		adminUserID, adminEmail, auth.HashToken(adminEmail), adminHash)
 	require.NoError(t, err)
 
@@ -148,13 +150,13 @@ func TestE2EHappyPath(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		// Partner endpoint is placeholder, so we create directly
+		// partners.program_id is NOT NULL — each partner belongs to one program.
 		partnerUserID = uuid.New()
 		partnerID = uuid.New().String()
 		_, err := pool.Exec(ctx,
-			`INSERT INTO partners (id, tenant_id, user_id, name, email, phone_e164, phone_hash, pix_key, status)
-			 VALUES ($1, $2, $3, 'Karine E2E', 'karine@e2e.com', '+5511999999999', $4, 'karine@pix.com', 'active')`,
-			partnerID, tenantID, partnerUserID, auth.HashToken("+5511999999999"))
+			`INSERT INTO partners (id, tenant_id, program_id, user_id, name, email, phone_e164, phone_hash, pix_key, status)
+			 VALUES ($1, $2, $3, $4, 'Karine E2E', 'karine@e2e.com', '+5511999999999', $5, 'karine@pix.com', 'active')`,
+			partnerID, tenantID, programID, partnerUserID, auth.HashToken("+5511999999999"))
 		require.NoError(t, err)
 	})
 
@@ -189,37 +191,49 @@ func TestE2EHappyPath(t *testing.T) {
 		assert.Equal(t, http.StatusAccepted, w.Code)
 	})
 
-	// Step 6: Create lead
+	// Step 6: Create lead (referral_id wired in step 7 below)
 	var leadID string
 	t.Run("6_create_lead", func(t *testing.T) {
+		// Schema: leads has no partner_id — the partner is reached via
+		// leads.referral_id → referrals.partner_id.
 		leadID = uuid.New().String()
 		_, err := pool.Exec(ctx,
-			`INSERT INTO leads (id, tenant_id, program_id, partner_id, name, phone_e164, phone_hash, email, email_hash, status, source)
-			 VALUES ($1, $2, $3, $4, 'Lead E2E', '+5511888888888', $5, 'lead@e2e.com', $6, 'new', 'referral')`,
-			leadID, tenantID, programID, partnerID,
+			`INSERT INTO leads (id, tenant_id, program_id, name, phone_e164, phone_hash, email, email_hash, status, source)
+			 VALUES ($1, $2, $3, 'Lead E2E', '+5511888888888', $4, 'lead@e2e.com', $5, 'new', 'referral')`,
+			leadID, tenantID, programID,
 			auth.HashToken("+5511888888888"), auth.HashToken("lead@e2e.com"))
 		require.NoError(t, err)
 	})
 
-	// Step 7: Create referral (linking lead to partner)
+	// Step 7: Create referral linking partner→lead
 	var referralID string
 	t.Run("7_create_referral", func(t *testing.T) {
+		// referrals requires rule_snapshot (NOT NULL). The schema has no
+		// lead_id or status here — leads.referral_id is the back-pointer.
+		// visitor_id lives on attributions/click_events, not referrals.
+		_ = visitorID
 		referralID = uuid.New().String()
 		_, err := pool.Exec(ctx,
-			`INSERT INTO referrals (id, tenant_id, program_id, partner_id, lead_id, visitor_id, attribution_score, status)
-			 VALUES ($1, $2, $3, $4, $5, $6, 0.85, 'attributed')`,
-			referralID, tenantID, programID, partnerID, leadID, visitorID)
+			`INSERT INTO referrals (id, tenant_id, program_id, partner_id, rule_snapshot, attribution_score, attributed_at)
+			 VALUES ($1, $2, $3, $4, '{}', 0.85, now())`,
+			referralID, tenantID, programID, partnerID)
+		require.NoError(t, err)
+
+		// Stitch the lead to this referral (back-pointer).
+		_, err = pool.Exec(ctx,
+			`UPDATE leads SET referral_id = $1 WHERE id = $2`, referralID, leadID)
 		require.NoError(t, err)
 	})
 
 	// Step 8: Create sale and reward
 	var rewardID string
 	t.Run("8_sale_and_reward", func(t *testing.T) {
+		// sales requires program_id and lead_id (both NOT NULL).
 		saleID := uuid.New()
 		_, err := pool.Exec(ctx,
-			`INSERT INTO sales (id, tenant_id, referral_id, partner_id, amount_cents, currency, status)
-			 VALUES ($1, $2, $3, $4, 100000, 'BRL', 'confirmed')`,
-			saleID, tenantID, referralID, partnerID)
+			`INSERT INTO sales (id, tenant_id, program_id, lead_id, referral_id, partner_id, amount_cents, currency, status, confirmed_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, 100000, 'BRL', 'confirmed', now())`,
+			saleID, tenantID, programID, leadID, referralID, partnerID)
 		require.NoError(t, err)
 
 		rewardID = uuid.New().String()

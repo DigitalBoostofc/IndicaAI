@@ -83,7 +83,7 @@ func TestE2EReferralFlow(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx,
 		`INSERT INTO users (id, email, email_hash, name, password_hash, role)
-		 VALUES ($1, $2, $3, 'E2E Admin', $4, 'admin')`,
+		 VALUES ($1, $2, $3, 'E2E Admin', $4, 'user')`,
 		adminUserID, adminEmail, hashStrE2E(adminEmail), adminHash)
 	require.NoError(t, err)
 
@@ -220,20 +220,27 @@ func TestE2EReferralFlow(t *testing.T) {
 	// ============================================================
 
 	t.Run("06_create_lead_and_referral", func(t *testing.T) {
+		// leads has no partner_id; the partner is reached via referral_id
+		// (back-pointer). visitor_id is recorded on click_events, not referrals.
+		_ = visitorID
 		leadID = uuid.New().String()
 		leadPhone := "+5511888887777"
 		_, err := pool.Exec(ctx,
-			`INSERT INTO leads (id, tenant_id, program_id, partner_id, name, phone_e164, phone_hash, email, email_hash, status, source)
-			 VALUES ($1, $2, $3, $4, 'Lead E2E Flow', $5, $6, 'lead@e2e.test', $7, 'new', 'referral')`,
-			leadID, tenantID, programID, partnerID,
+			`INSERT INTO leads (id, tenant_id, program_id, name, phone_e164, phone_hash, email, email_hash, status, source)
+			 VALUES ($1, $2, $3, 'Lead E2E Flow', $4, $5, 'lead@e2e.test', $6, 'new', 'referral')`,
+			leadID, tenantID, programID,
 			leadPhone, hashStrE2E(leadPhone), hashStrE2E("lead@e2e.test"))
 		require.NoError(t, err)
 
 		referralID = uuid.New().String()
 		_, err = pool.Exec(ctx,
-			`INSERT INTO referrals (id, tenant_id, program_id, partner_id, lead_id, visitor_id, attribution_score, rule_snapshot, status)
-			 VALUES ($1, $2, $3, $4, $5, $6, 0.85, '{}', 'attributed')`,
-			referralID, tenantID, programID, partnerID, leadID, visitorID)
+			`INSERT INTO referrals (id, tenant_id, program_id, partner_id, rule_snapshot, attribution_score, attributed_at)
+			 VALUES ($1, $2, $3, $4, '{}', 0.85, now())`,
+			referralID, tenantID, programID, partnerID)
+		require.NoError(t, err)
+
+		_, err = pool.Exec(ctx,
+			`UPDATE leads SET referral_id = $1 WHERE id = $2`, referralID, leadID)
 		require.NoError(t, err)
 	})
 
@@ -335,7 +342,8 @@ func TestE2EReferralFlow(t *testing.T) {
 		require.NoError(t, err)
 		defer tx.Rollback(ctx)
 
-		_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = $1", tenantID.String())
+		// pgx silently no-ops SET LOCAL bind params; interpolate the UUID instead.
+		_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = '"+tenantID.String()+"'")
 		require.NoError(t, err)
 
 		var payoutStatus string

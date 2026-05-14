@@ -206,7 +206,8 @@ func TestRLSIsolation(t *testing.T) {
 			require.NoError(t, err)
 			defer tx.Rollback(ctx)
 
-			_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = $1", tenantA.String())
+			// pgx silently no-ops SET LOCAL bind params; interpolate the UUID instead.
+			_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = '"+tenantA.String()+"'")
 			require.NoError(t, err)
 
 			var count int
@@ -220,7 +221,7 @@ func TestRLSIsolation(t *testing.T) {
 			require.NoError(t, err)
 			defer tx.Rollback(ctx)
 
-			_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = $1", tenantB.String())
+			_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = '"+tenantB.String()+"'")
 			require.NoError(t, err)
 
 			var count int
@@ -252,7 +253,7 @@ func TestRLSIsolation(t *testing.T) {
 		require.NoError(t, err)
 		defer tx.Rollback(ctx)
 
-		_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = $1", tenantA.String())
+		_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = '"+tenantA.String()+"'")
 		require.NoError(t, err)
 
 		rows, err := tx.Query(ctx, "SELECT pix_key FROM payouts")
@@ -277,7 +278,7 @@ func TestRLSIsolation(t *testing.T) {
 		require.NoError(t, err)
 		defer tx.Rollback(ctx)
 
-		_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = $1", tenantB.String())
+		_, err = tx.Exec(ctx, "SET LOCAL app.current_tenant = '"+tenantB.String()+"'")
 		require.NoError(t, err)
 
 		rows, err := tx.Query(ctx, "SELECT pix_key FROM partners")
