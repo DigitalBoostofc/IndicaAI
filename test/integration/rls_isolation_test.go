@@ -106,10 +106,12 @@ func TestRLSIsolation(t *testing.T) {
 		{leadA, tenantA, progA, partnerA, "+5511888880001"},
 		{leadB, tenantB, progB, partnerB, "+5511888880002"},
 	} {
+		// leads has no partner_id column — partner is reached via referral_id.
+		_ = l.partner
 		_, err := pool.Exec(ctx,
-			`INSERT INTO leads (id, tenant_id, program_id, partner_id, name, phone_e164, phone_hash, status, source)
-			 VALUES ($1, $2, $3, $4, 'Lead', $5, $6, 'new', 'referral')`,
-			l.id, l.tenant, l.prog, l.partner, l.phone, hashStr(l.phone))
+			`INSERT INTO leads (id, tenant_id, program_id, name, phone_e164, phone_hash, status, source)
+			 VALUES ($1, $2, $3, 'Lead', $4, $5, 'new', 'referral')`,
+			l.id, l.tenant, l.prog, l.phone, hashStr(l.phone))
 		require.NoError(t, err)
 	}
 

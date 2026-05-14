@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -185,7 +186,8 @@ func TestFraudSelfReferralBlocked(t *testing.T) {
 	// ============================================================
 
 	t.Run("fraud_evaluations_rls_isolation", func(t *testing.T) {
-		// Create another tenant with its own fraud evaluation
+		// Build a full tenant→program→partner chain for the "other" side
+		// so the fraud_evaluations FK to partners.id is satisfiable.
 		otherTenant := uuid.New()
 		_, err := pool.Exec(ctx,
 			`INSERT INTO tenants (id, name, subdomain, plan, status)
@@ -194,11 +196,25 @@ func TestFraudSelfReferralBlocked(t *testing.T) {
 		require.NoError(t, err)
 		defer pool.Exec(ctx, "DELETE FROM tenants WHERE id = $1", otherTenant)
 
+		otherProgram := uuid.New()
+		_, err = pool.Exec(ctx,
+			`INSERT INTO programs (id, tenant_id, name, rules, redirect_type)
+			 VALUES ($1, $2, 'Other Program', '{"schema_version":1,"trigger":"sale.confirmed","reward":{"type":"commission_fixed","amount_brl":50}}', 'website')`,
+			otherProgram, otherTenant)
+		require.NoError(t, err)
+
+		otherPartner := uuid.New()
+		_, err = pool.Exec(ctx,
+			`INSERT INTO partners (id, tenant_id, program_id, name, status)
+			 VALUES ($1, $2, $3, 'Other Partner', 'active')`,
+			otherPartner, otherTenant, otherProgram)
+		require.NoError(t, err)
+
 		otherEvalID := uuid.New()
 		_, err = pool.Exec(ctx,
 			`INSERT INTO fraud_evaluations (id, tenant_id, partner_id, score, action, signals)
 			 VALUES ($1, $2, $3, 0, 'ok', '[]')`,
-			otherEvalID, otherTenant, uuid.New())
+			otherEvalID, otherTenant, otherPartner)
 		require.NoError(t, err)
 
 		// With tenant context, should see only own evaluations
@@ -241,7 +257,7 @@ func TestFraudSelfReferralBlocked(t *testing.T) {
 			action    string
 			signals   string
 			evidence  string
-			createdAt string
+			createdAt time.Time
 		)
 		err = rows.Scan(&id, &tid, &pid, &score, &action, &signals, &evidence, &createdAt)
 		require.NoError(t, err)
@@ -253,7 +269,7 @@ func TestFraudSelfReferralBlocked(t *testing.T) {
 		assert.Equal(t, "review", action)
 		assert.NotEmpty(t, signals, "signals must be recorded for audit")
 		assert.NotEmpty(t, evidence, "evidence must be recorded for audit")
-		assert.NotEmpty(t, createdAt)
+		assert.False(t, createdAt.IsZero(), "created_at must be set")
 	})
 }
 
