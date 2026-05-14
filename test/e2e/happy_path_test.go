@@ -79,7 +79,7 @@ func TestE2EHappyPath(t *testing.T) {
 			Email:    adminEmail,
 			Password: "AdminPass123!",
 		})
-		req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader(loginBody))
+		req := httptest.NewRequest("POST", "/api/auth/login", bytes.NewReader(loginBody))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -119,7 +119,7 @@ func TestE2EHappyPath(t *testing.T) {
 			RedirectType:  "website",
 			RedirectURL:   "https://example.com",
 		})
-		req := httptest.NewRequest("POST", "/programs", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/programs", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 		w := httptest.NewRecorder()
@@ -144,7 +144,7 @@ func TestE2EHappyPath(t *testing.T) {
 			Phone:  "+5511999999999",
 			PixKey: "karine@pix.com",
 		})
-		req := httptest.NewRequest("POST", "/partners", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/partners", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 		w := httptest.NewRecorder()
@@ -183,7 +183,7 @@ func TestE2EHappyPath(t *testing.T) {
 			IP:        "192.168.1.1",
 			UA:        "Mozilla/5.0 E2E Test",
 		})
-		req := httptest.NewRequest("POST", "/events/click", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/events/click", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)

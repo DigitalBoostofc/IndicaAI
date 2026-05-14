@@ -61,11 +61,12 @@ func TestFraudSelfReferralBlocked(t *testing.T) {
 		programID, tenantID)
 	require.NoError(t, err)
 
-	// Create partner with known phone
+	// Create partner with known phone AND email hashes so the self-referral
+	// check (which compares hashes) has something to compare against.
 	_, err = pool.Exec(ctx,
-		`INSERT INTO partners (id, tenant_id, program_id, name, email, phone_e164, phone_hash, pix_key, status)
-		 VALUES ($1, $2, $3, 'Fraud Partner', 'fraud@test.com', $4, $5, 'fraud@pix.com', 'active')`,
-		partnerID, tenantID, programID, partnerPhone, partnerPhoneHash)
+		`INSERT INTO partners (id, tenant_id, program_id, name, email, email_hash, phone_e164, phone_hash, pix_key, status)
+		 VALUES ($1, $2, $3, 'Fraud Partner', 'fraud@test.com', $4, $5, $6, 'fraud@pix.com', 'active')`,
+		partnerID, tenantID, programID, hashStrFraud("fraud@test.com"), partnerPhone, partnerPhoneHash)
 	require.NoError(t, err)
 
 	// ============================================================
