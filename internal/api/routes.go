@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/indica-ai/indica-ai/internal/api/handlers/audit"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/auth"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/dashboard"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/leads"
@@ -14,6 +15,7 @@ import (
 	payoutH "github.com/indica-ai/indica-ai/internal/api/handlers/payouts"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/programs"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/rewards"
+	"github.com/indica-ai/indica-ai/internal/api/handlers/sessions"
 	"github.com/indica-ai/indica-ai/internal/api/handlers/tracking"
 	"github.com/indica-ai/indica-ai/internal/api/middleware"
 	"github.com/indica-ai/indica-ai/internal/build"
@@ -45,6 +47,8 @@ func Router(
 	rewardsH := rewards.New(pool)
 	dashH := dashboard.New(pool)
 	lgpdH := lgpd.New(pool, logger)
+	auditH := audit.New(pool)
+	sessionsH := sessions.New(pool)
 
 	// Liveness probe. Includes the build commit so deploys can be verified
 	// from outside the cluster — curl /healthz returns the SHA we just built.
@@ -161,6 +165,20 @@ func Router(
 				r.Get("/", lgpdH.ListConsents)
 				r.Post("/", lgpdH.Grant)
 				r.Delete("/{id}", lgpdH.Revoke)
+			})
+
+			// Sessions — list / revoke active sessions per user
+			r.Route("/me/sessions", func(r chi.Router) {
+				r.Get("/", sessionsH.List)
+				r.Post("/revoke-all", sessionsH.RevokeAll)
+				r.Post("/{id}/revoke", sessionsH.Revoke)
+			})
+
+			// Audit log + fraud evaluations (tenant-admin)
+			r.Route("/audit-log", func(r chi.Router) {
+				r.Get("/", auditH.List)
+				r.Get("/summary", auditH.Summary)
+				r.Get("/fraud-evaluations", auditH.FraudEvaluations)
 			})
 		})
 
