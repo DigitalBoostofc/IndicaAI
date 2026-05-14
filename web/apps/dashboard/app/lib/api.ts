@@ -242,6 +242,78 @@ export interface PayoutsResponse {
   limit: number;
 }
 
+export interface AuditEntry {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  old_values: unknown;
+  new_values: unknown;
+  ip_address: string | null;
+  user_agent: string | null;
+  metadata: unknown;
+  created_at: string;
+}
+
+export interface AuditSummary {
+  total_entries: number;
+  fraud_ok: number;
+  fraud_review: number;
+  fraud_block: number;
+  entries_last_7_days: number;
+  entries_last_30_days: number;
+  top_actions: { action: string; count: number }[];
+}
+
+export interface FraudEvaluation {
+  id: string;
+  partner_id: string;
+  partner_name: string;
+  lead_id: string | null;
+  score: number;
+  action: "ok" | "review" | "block";
+  signals: { name: string; points: number; evidence?: Record<string, unknown> }[];
+  evidence: Record<string, unknown>;
+  created_at: string;
+}
+
+export const auditApi = {
+  list: (filters?: { action?: string; entity_type?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (filters?.action) params.set("action", filters.action);
+    if (filters?.entity_type) params.set("entity_type", filters.entity_type);
+    if (filters?.limit) params.set("limit", String(filters.limit));
+    const qs = params.toString();
+    return api.get<AuditEntry[]>(`/api/audit-log${qs ? `?${qs}` : ""}`);
+  },
+  summary: () => api.get<AuditSummary>("/api/audit-log/summary"),
+  fraudEvaluations: (filters?: { action?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (filters?.action) params.set("action", filters.action);
+    if (filters?.limit) params.set("limit", String(filters.limit));
+    const qs = params.toString();
+    return api.get<FraudEvaluation[]>(`/api/audit-log/fraud-evaluations${qs ? `?${qs}` : ""}`);
+  },
+};
+
+export interface Session {
+  id: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export const sessionsApi = {
+  list: () => api.get<Session[]>("/api/me/sessions"),
+  revoke: (id: string) =>
+    api.post<{ status: string }>(`/api/me/sessions/${id}/revoke`),
+  revokeAll: () =>
+    api.post<{ status: string; revoked_count: number }>("/api/me/sessions/revoke-all"),
+};
+
 export const payoutsApi = {
   list: (filters?: { status?: PayoutStatus; page?: number; limit?: number }) => {
     const params = new URLSearchParams();

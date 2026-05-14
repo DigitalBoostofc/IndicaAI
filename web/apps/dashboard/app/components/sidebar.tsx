@@ -10,6 +10,7 @@ import {
   FileText,
   DollarSign,
   Banknote,
+  Shield,
   Settings,
   Menu,
   X,
@@ -25,6 +26,7 @@ const navigation = [
   { name: "Indicações", href: "/indicacoes", icon: FileText },
   { name: "Comissões", href: "/comissoes", icon: DollarSign },
   { name: "Saques", href: "/saques", icon: Banknote },
+  { name: "Auditoria", href: "/auditoria", icon: Shield },
 ];
 
 const bottomNavigation = [
